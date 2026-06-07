@@ -395,36 +395,72 @@
 		{{ &OPT.codeBeforBody }}
 	
 	
-<script>
 let searchData = null;
 
-// 异步加载 search.xml 数据
 function loadSearchData() {
     if (!searchData) {
+        console.log("开始加载搜索索引...");
         fetch('/search.xml')
-            .then(response => response.text())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("HTTP 状态错误: " + response.status + "。请检查域名后是否存在 /search.xml 页面");
+                }
+                return response.text();
+            })
             .then(str => new window.DOMParser().parseFromString(str, "text/xml"))
             .then(data => {
-                const entries = data.querySelectorAll('entry');
-                searchData = Array.from(entries).map(entry => ({
-                    title: entry.querySelector('title') ? entry.querySelector('title').textContent : '',
-                    url: entry.querySelector('url') ? entry.querySelector('url').textContent : '',
-                    content: entry.querySelector('content') ? entry.querySelector('content').textContent : ''
-                }));
-            }).catch(err => console.error("加载搜索索引失败:", err));
+                // 兼容性检查：同时尝试获取 Atom 的 entry 或 RSS 的 item
+                let entries = data.querySelectorAll('entry');
+                if (entries.length === 0) {
+                    entries = data.querySelectorAll('item');
+                }
+                
+                console.log("成功获取到 XML 节点数量:", entries.length);
+
+                if (entries.length === 0) {
+                    console.error("未能识别 XML 中的文章节点，请在浏览器打开 /search.xml 查看标签名");
+                    return;
+                }
+
+                searchData = Array.from(entries).map(entry => {
+                    // 兼容提取标题
+                    const titleNode = entry.querySelector('title');
+                    // 兼容提取链接 (url 或 link)
+                    let urlNode = entry.querySelector('url') || entry.querySelector('link');
+                    // 兼容提取内容 (content 或 description)
+                    const contentNode = entry.querySelector('content') || entry.querySelector('description');
+
+                    let url = urlNode ? (urlNode.textContent || urlNode.getAttribute('href') || '') : '';
+                    
+                    return {
+                        title: titleNode ? titleNode.textContent : '',
+                        url: url,
+                        content: contentNode ? contentNode.textContent : ''
+                    };
+                });
+                console.log("搜索索引解析成功，数据已就绪:", searchData);
+            }).catch(err => {
+                console.error("加载或解析搜索索引失败，具体错误:", err);
+            });
     }
 }
 
 // 激活触发加载
 document.getElementById('search-input').addEventListener('focus', loadSearchData);
 
-// 核心搜索执行函数 (isSubmit 代表是否是点击按钮或回车提交)
+// 核心搜索执行函数
 function doSearch(keyword, isSubmit = false) {
     const resultsContainer = document.getElementById('search-results');
     resultsContainer.innerHTML = ''; 
 
-    if (keyword.length < 1 || !searchData) {
+    if (keyword.length < 1) {
         resultsContainer.style.display = 'none';
+        return;
+    }
+
+    if (!searchData || searchData.length === 0) {
+        resultsContainer.style.display = 'block';
+        resultsContainer.innerHTML = '<div style="padding:15px;color:red;text-align:center;">搜索数据未就绪，请稍后再试或按 F12 检查控制台报错</div>';
         return;
     }
 
@@ -436,8 +472,6 @@ function doSearch(keyword, isSubmit = false) {
 
     if (matched.length > 0) {
         resultsContainer.style.display = 'block';
-        
-        // 如果是点击提交按钮，可以赋予不同的样式或直接改变布局，这里默认展示完整列表
         matched.forEach(item => {
             const div = document.createElement('div');
             div.className = 'search-result-item';
@@ -453,19 +487,19 @@ function doSearch(keyword, isSubmit = false) {
     }
 }
 
-// 1. 监听实时输入
+// 监听实时输入
 document.getElementById('search-input').addEventListener('input', function(e) {
     doSearch(e.target.value.trim().toLowerCase(), false);
 });
 
-// 2. 监听表单提交（点击按钮或按回车键）
+// 监听表单提交
 document.getElementById('search-form').addEventListener('submit', function(e) {
-    e.preventDefault(); // 阻止网页刷新
+    e.preventDefault();
     const keyword = document.getElementById('search-input').value.trim().toLowerCase();
-    doSearch(keyword, true); // 传入 true，展示带内容摘要的详细结果
+    doSearch(keyword, true);
 });
 
-// 点击空白处隐藏下拉
+// 点击空白处隐藏
 document.addEventListener('click', function(e) {
     const form = document.getElementById('search-form');
     if (!form.contains(e.target)) {
