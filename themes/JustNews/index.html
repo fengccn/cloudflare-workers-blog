@@ -330,7 +330,84 @@
 		{{ &OPT.codeBeforBody }}
 	
 	
+<script>
+let searchData = null;
 
+// 异步加载 search.xml 数据
+function loadSearchData() {
+    if (!searchData) {
+        fetch('/search.xml')
+            .then(response => response.text())
+            .then(str => new window.DOMParser().parseFromString(str, "text/xml"))
+            .then(data => {
+                const entries = data.querySelectorAll('entry');
+                searchData = Array.from(entries).map(entry => ({
+                    title: entry.querySelector('title') ? entry.querySelector('title').textContent : '',
+                    url: entry.querySelector('url') ? entry.querySelector('url').textContent : '',
+                    content: entry.querySelector('content') ? entry.querySelector('content').textContent : ''
+                }));
+            }).catch(err => console.error("加载搜索索引失败:", err));
+    }
+}
+
+// 激活触发加载
+document.getElementById('search-input').addEventListener('focus', loadSearchData);
+
+// 核心搜索执行函数 (isSubmit 代表是否是点击按钮或回车提交)
+function doSearch(keyword, isSubmit = false) {
+    const resultsContainer = document.getElementById('search-results');
+    resultsContainer.innerHTML = ''; 
+
+    if (keyword.length < 1 || !searchData) {
+        resultsContainer.style.display = 'none';
+        return;
+    }
+
+    // 模糊匹配
+    const matched = searchData.filter(item => 
+        item.title.toLowerCase().includes(keyword) || 
+        item.content.toLowerCase().includes(keyword)
+    );
+
+    if (matched.length > 0) {
+        resultsContainer.style.display = 'block';
+        
+        // 如果是点击提交按钮，可以赋予不同的样式或直接改变布局，这里默认展示完整列表
+        matched.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'search-result-item';
+            div.innerHTML = `<a href="${item.url}" style="display:block;padding:10px;color:#333;text-decoration:none;border-bottom:1px solid #eee;">
+                <strong style="color:#007bff;">${item.title}</strong>
+                ${isSubmit ? `<p style="margin:5px 0 0;font-size:13px;color:#666;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${item.content.replace(/<[^>]+>/g, '').substring(0, 100)}...</p>` : ''}
+            </a>`;
+            resultsContainer.appendChild(div);
+        });
+    } else {
+        resultsContainer.style.display = 'block';
+        resultsContainer.innerHTML = '<div style="padding:15px;color:#999;text-align:center;">没有找到相关文章，换个词试试吧~</div>';
+    }
+}
+
+// 1. 监听实时输入
+document.getElementById('search-input').addEventListener('input', function(e) {
+    doSearch(e.target.value.trim().toLowerCase(), false);
+});
+
+// 2. 监听表单提交（点击按钮或按回车键）
+document.getElementById('search-form').addEventListener('submit', function(e) {
+    e.preventDefault(); // 阻止网页刷新
+    const keyword = document.getElementById('search-input').value.trim().toLowerCase();
+    doSearch(keyword, true); // 传入 true，展示带内容摘要的详细结果
+});
+
+// 点击空白处隐藏下拉
+document.addEventListener('click', function(e) {
+    const form = document.getElementById('search-form');
+    if (!form.contains(e.target)) {
+        document.getElementById('search-results').style.display = 'none';
+    }
+});
+</script>
 	
 	</body>
 
