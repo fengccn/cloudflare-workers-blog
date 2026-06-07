@@ -396,48 +396,51 @@
 	
 	
 <script>
-// 聲明全局變數
 window.cfSearchData = null;
+window.cfSearchStatus = "pending"; // 狀態追蹤: pending, success, error
 
-// 1. 針對您的 XML 結構優化的異步資料載入函數
-function initCloudflareSearchData() {
-    if (window.cfSearchData) return; // 避免重複載入
-    
-    console.log("🔍 開始從後台獲取搜尋索引...");
+// 1. 頁面載入時立即在背景獲取數據
+function autoLoadSearchData() {
+    console.log("🔍 [搜尋引擎] 正在背景預加載 search.xml...");
     fetch('/search.xml')
         .then(response => {
-            if (!response.ok) throw new Error("HTTP " + response.status);
+            if (!response.ok) throw new Error("HTTP 狀態碼 " + response.status + "。請確認 https://880200.xyz 能否正常訪問。");
             return response.text();
         })
         .then(str => new window.DOMParser().parseFromString(str, "text/xml"))
         .then(data => {
-            // 【精準匹配】獲取您的 <blog> 節點
             let entries = data.querySelectorAll('blog');
-            
-            console.log("成功獲取到 XML 文章節點數量:", entries.length);
-
             if (entries.length === 0) {
-                console.error("❌ 未能識別到 <blog> 節點，請確認 XML 結構是否改變。");
+                window.cfSearchStatus = "error";
+                console.error("❌ [搜尋引擎] XML 內找不到任何 <blog> 標籤。");
                 return;
             }
 
-            // 解析專屬的標籤欄位
             window.cfSearchData = Array.from(entries).map(entry => {
                 const titleNode = entry.querySelector('title');
                 const urlNode = entry.querySelector('url');
                 const contentNode = entry.querySelector('content');
-                
                 return {
                     title: titleNode ? titleNode.textContent : '無標題',
                     url: urlNode ? urlNode.textContent : '',
                     content: contentNode ? contentNode.textContent : ''
                 };
             });
-            console.log("✅ 搜尋索引解析成功！共載入 " + window.cfSearchData.length + " 篇文章。");
+            window.cfSearchStatus = "success";
+            console.log("✅ [搜尋引擎] 索引解析成功！已載入 " + window.cfSearchData.length + " 篇文章。");
         })
         .catch(err => {
-            console.error("❌ 搜尋索引載入失敗，錯誤資訊:", err);
+            window.cfSearchStatus = "error";
+            window.cfSearchErrorMsg = err.message;
+            console.error("❌ [搜尋引擎] 載入失敗:", err);
         });
+}
+
+// 立即執行初始化
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", autoLoadSearchData);
+} else {
+    autoLoadSearchData();
 }
 
 // 2. 核心搜尋比對與渲染函數
@@ -452,13 +455,23 @@ function executeLocalSearch(keyword, isSubmit = false) {
         return;
     }
 
-    if (!window.cfSearchData || window.cfSearchData.length === 0) {
+    // 處理資料尚未就緒或出錯的情況
+    if (window.cfSearchStatus === "pending") {
         resultsContainer.style.display = 'block';
-        resultsContainer.innerHTML = '<div style="padding:15px;color:#d9534f;text-align:center;font-size:13px;">資料載入中，請稍後再試</div>';
+        resultsContainer.innerHTML = '<div style="padding:15px;color:#666;text-align:center;font-size:13px;">🔍 搜尋數據正在背景載入中，請稍候...</div>';
+        return;
+    }
+    
+    if (window.cfSearchStatus === "error" || !window.cfSearchData) {
+        resultsContainer.style.display = 'block';
+        resultsContainer.innerHTML = `<div style="padding:15px;color:#d9534f;text-align:center;font-size:13px;">
+            ❌ 搜尋數據加載失敗<br>
+            <span style="font-size:11px;color:#999;">原因: ${window.cfSearchErrorMsg || 'XML 節點解析錯誤'}</span>
+        </div>`;
         return;
     }
 
-    // 模糊搜尋比對（同時比對標題和內容，不區分大小寫）
+    // 模糊搜尋比對
     const matched = window.cfSearchData.filter(item => 
         item.title.toLowerCase().includes(keyword) || 
         item.content.toLowerCase().includes(keyword)
@@ -467,11 +480,10 @@ function executeLocalSearch(keyword, isSubmit = false) {
     if (matched.length > 0) {
         resultsContainer.style.display = 'block';
         matched.forEach(item => {
-            // 過濾掉正文中的 Markdown 圖片語法和 HTML 標籤，讓摘要更乾淨
             let cleanContent = item.content
-                .replace(/!\[.*?\]\(.*?\)/g, '') // 移除 Markdown 圖片
-                .replace(/\[.*?\]\(.*?\)/g, '')  // 移除 Markdown 鏈接
-                .replace(/<[^>]+>/g, '')         // 移除 HTML 標籤
+                .replace(/!\[.*?\]\(.*?\)/g, '') 
+                .replace(/\[.*?\]\(.*?\)/g, '')  
+                .replace(/<[^>]+>/g, '')         
                 .trim();
 
             const div = document.createElement('div');
@@ -488,13 +500,7 @@ function executeLocalSearch(keyword, isSubmit = false) {
     }
 }
 
-// 3. 全域事件代理監聽
-document.addEventListener('focusin', function(e) {
-    if (e.target && e.target.id === 'search-input') {
-        initCloudflareSearchData();
-    }
-});
-
+// 3. 全域事件代理監聽輸入
 document.addEventListener('input', function(e) {
     if (e.target && e.target.id === 'search-input') {
         const keyword = e.target.value.trim().toLowerCase();
@@ -504,7 +510,7 @@ document.addEventListener('input', function(e) {
 
 document.addEventListener('submit', function(e) {
     if (e.target && e.target.id === 'search-form') {
-        e.preventDefault(); // 阻止表單刷新頁面
+        e.preventDefault(); 
         const inputEl = document.getElementById('search-input');
         if (inputEl) {
             const keyword = inputEl.value.trim().toLowerCase();
@@ -513,7 +519,6 @@ document.addEventListener('submit', function(e) {
     }
 });
 
-// 點擊空白處隱藏結果框
 document.addEventListener('click', function(e) {
     const resultsContainer = document.getElementById('search-results');
     const formContainer = document.getElementById('search-form');
