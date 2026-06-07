@@ -26,6 +26,70 @@
 		<link rel="stylesheet" href="https://cdn.staticfile.org/highlight.js/10.3.2/styles/tomorrow-night-bright.min.css">
 		<script src='https://cdn.staticfile.org/highlight.js/10.3.2/highlight.min.js'></script>
 		{{ &OPT.codeBeforHead }}
+
+<style>
+.search-form-container {
+    position: relative;
+    width: 100%;
+    max-width: 320px; /* 您可以根据博客导航栏调整宽度 */
+    margin: 10px 0;
+}
+.search-input-group {
+    display: flex;
+    align-items: center;
+    border: 1px solid #ddd;
+    border-radius: 20px; /* 圆角设计 */
+    overflow: hidden;
+    background: #fff;
+    transition: all 0.3s ease;
+}
+.search-input-group:focus-within {
+    border-color: #007bff;
+    box-shadow: 0 0 5px rgba(0,123,255,0.2);
+}
+#search-input {
+    flex: 1;
+    border: none;
+    padding: 8px 15px;
+    outline: none;
+    font-size: 14px;
+    background: transparent;
+}
+#search-submit-btn {
+    border: none;
+    background: transparent;
+    padding: 8px 12px;
+    cursor: pointer;
+    color: #666;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+}
+#search-submit-btn:hover {
+    color: #007bff; /* 悬浮时按钮变蓝色 */
+}
+/* 结果下拉框优化 */
+.search-results-list {
+    position: absolute;
+    top: 105%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    max-height: 350px;
+    overflow-y: auto;
+    z-index: 9999;
+    display: none;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+}
+.search-result-item:hover {
+    background-color: #f8f9fa;
+}
+</style>
+
+
 	</head>
 	<body class="archive paged category category-zhishi category-5 paged-2 category-paged-2 lang-cn el-boxed">
 		<header class="header">
@@ -135,6 +199,23 @@
 				</div>
 
 				<aside class="sidebar">
+
+     <div id="linkcat-0" class="widget_links">
+        <h3 class="widget-title">
+            <span>站内搜索</span></h3>
+            <form id="search-form" onsubmit="return false;" class="search-form-container">
+              <div class="search-input-group">
+                <input type="text" id="search-input" placeholder="输入关键词搜索本站..." autocomplete="off">
+                <button type="submit" id="search-submit-btn" aria-label="搜索">
+            <!-- 这里用了一个简单的放大镜 SVG 图标，您也可以换成文字“搜索” -->
+                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                </button>
+              </div>
+    <!-- 实时下拉预览框 -->
+              <div id="search-results" class="search-results-list"></div>
+            </form>      
+       </div> 
+					
 					<div id="wpcom-post-thumb-2" class="widget widget_post_thumb">
 						<h3 class="widget-title">
 							<span>近期文章</span></h3>
@@ -250,6 +331,142 @@ var fifuImageVars = {"fifu_lazy":"1","fifu_woo_lbox_enabled":"1","fifu_woo_zoom"
 <script>hljs.initHighlightingOnLoad(); //代码高亮
 					</script>
 		{{ &OPT.codeBeforBody }}
+
+<script>
+window.cfSearchData = null;
+window.cfSearchStatus = "pending"; // 狀態追蹤: pending, success, error
+
+// 1. 頁面載入時立即在背景獲取數據
+function autoLoadSearchData() {
+    console.log("🔍 [搜尋引擎] 正在背景預加載 search.xml...");
+    fetch('/search.xml')
+        .then(response => {
+            if (!response.ok) throw new Error("HTTP 狀態碼 " + response.status + "。請確認 https://880200.xyz 能否正常訪問。");
+            return response.text();
+        })
+        .then(str => new window.DOMParser().parseFromString(str, "text/xml"))
+        .then(data => {
+            let entries = data.querySelectorAll('blog');
+            if (entries.length === 0) {
+                window.cfSearchStatus = "error";
+                console.error("❌ [搜尋引擎] XML 內找不到任何 <blog> 標籤。");
+                return;
+            }
+
+            window.cfSearchData = Array.from(entries).map(entry => {
+                const titleNode = entry.querySelector('title');
+                const urlNode = entry.querySelector('url');
+                const contentNode = entry.querySelector('content');
+                return {
+                    title: titleNode ? titleNode.textContent : '無標題',
+                    url: urlNode ? urlNode.textContent : '',
+                    content: contentNode ? contentNode.textContent : ''
+                };
+            });
+            window.cfSearchStatus = "success";
+            console.log("✅ [搜尋引擎] 索引解析成功！已載入 " + window.cfSearchData.length + " 篇文章。");
+        })
+        .catch(err => {
+            window.cfSearchStatus = "error";
+            window.cfSearchErrorMsg = err.message;
+            console.error("❌ [搜尋引擎] 載入失敗:", err);
+        });
+}
+
+// 立即執行初始化
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", autoLoadSearchData);
+} else {
+    autoLoadSearchData();
+}
+
+// 2. 核心搜尋比對與渲染函數
+function executeLocalSearch(keyword, isSubmit = false) {
+    const resultsContainer = document.getElementById('search-results');
+    if (!resultsContainer) return;
+    
+    resultsContainer.innerHTML = ''; 
+
+    if (keyword.length < 1) {
+        resultsContainer.style.display = 'none';
+        return;
+    }
+
+    // 處理資料尚未就緒或出錯的情況
+    if (window.cfSearchStatus === "pending") {
+        resultsContainer.style.display = 'block';
+        resultsContainer.innerHTML = '<div style="padding:15px;color:#666;text-align:center;font-size:13px;">🔍 搜尋數據正在背景載入中，請稍候...</div>';
+        return;
+    }
+    
+    if (window.cfSearchStatus === "error" || !window.cfSearchData) {
+        resultsContainer.style.display = 'block';
+        resultsContainer.innerHTML = `<div style="padding:15px;color:#d9534f;text-align:center;font-size:13px;">
+            ❌ 搜尋數據加載失敗<br>
+            <span style="font-size:11px;color:#999;">原因: ${window.cfSearchErrorMsg || 'XML 節點解析錯誤'}</span>
+        </div>`;
+        return;
+    }
+
+    // 模糊搜尋比對
+    const matched = window.cfSearchData.filter(item => 
+        item.title.toLowerCase().includes(keyword) || 
+        item.content.toLowerCase().includes(keyword)
+    );
+
+    if (matched.length > 0) {
+        resultsContainer.style.display = 'block';
+        matched.forEach(item => {
+            let cleanContent = item.content
+                .replace(/!\[.*?\]\(.*?\)/g, '') 
+                .replace(/\[.*?\]\(.*?\)/g, '')  
+                .replace(/<[^>]+>/g, '')         
+                .trim();
+
+            const div = document.createElement('div');
+            div.className = 'search-result-item';
+            div.innerHTML = `<a href="${item.url}" style="display:block;padding:12px;color:#333;text-decoration:none;border-bottom:1px solid #f0f0f0;">
+                <strong style="color:#007bff;font-size:14px;">${item.title}</strong>
+                ${isSubmit ? `<p style="margin:5px 0 0;font-size:12px;color:#666;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.4;">${cleanContent.substring(0, 90)}...</p>` : ''}
+            </a>`;
+            resultsContainer.appendChild(div);
+        });
+    } else {
+        resultsContainer.style.display = 'block';
+        resultsContainer.innerHTML = '<div style="padding:15px;color:#999;text-align:center;font-size:13px;">沒有找到相關文章，換個詞試試吧 ~</div>';
+    }
+}
+
+// 3. 全域事件代理監聽輸入
+document.addEventListener('input', function(e) {
+    if (e.target && e.target.id === 'search-input') {
+        const keyword = e.target.value.trim().toLowerCase();
+        executeLocalSearch(keyword, false);
+    }
+});
+
+document.addEventListener('submit', function(e) {
+    if (e.target && e.target.id === 'search-form') {
+        e.preventDefault(); 
+        const inputEl = document.getElementById('search-input');
+        if (inputEl) {
+            const keyword = inputEl.value.trim().toLowerCase();
+            executeLocalSearch(keyword, true);
+        }
+    }
+});
+
+document.addEventListener('click', function(e) {
+    const resultsContainer = document.getElementById('search-results');
+    const formContainer = document.getElementById('search-form');
+    if (resultsContainer && formContainer && !formContainer.contains(e.target)) {
+        resultsContainer.style.display = 'none';
+    }
+});
+</script>
+		
+	</body>
+	
 	</body>
 
 </html>
