@@ -395,62 +395,55 @@
 		{{ &OPT.codeBeforBody }}
 	
 	
-let searchData = null;
+<script>
+// 聲明全局變數
+window.cfSearchData = null;
 
-function loadSearchData() {
-    if (!searchData) {
-        console.log("开始加载搜索索引...");
-        fetch('/search.xml')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error("HTTP 状态错误: " + response.status + "。请检查域名后是否存在 /search.xml 页面");
-                }
-                return response.text();
-            })
-            .then(str => new window.DOMParser().parseFromString(str, "text/xml"))
-            .then(data => {
-                // 兼容性检查：同时尝试获取 Atom 的 entry 或 RSS 的 item
-                let entries = data.querySelectorAll('entry');
-                if (entries.length === 0) {
-                    entries = data.querySelectorAll('item');
-                }
+// 1. 核心非同步資料載入函數
+function initCloudflareSearchData() {
+    if (window.cfSearchData) return; // 避免重複載入
+    
+    console.log("🔍 開始從後台獲取搜尋索引...");
+    fetch('/search.xml')
+        .then(response => {
+            if (!response.ok) throw new Error("HTTP " + response.status);
+            return response.text();
+        })
+        .then(str => new window.DOMParser().parseFromString(str, "text/xml"))
+        .then(data => {
+            // 自動適配 Atom(entry) 或 RSS(item) 格式
+            let entries = data.querySelectorAll('entry');
+            if (entries.length === 0) entries = data.querySelectorAll('item');
+            
+            if (entries.length === 0) {
+                console.error("❌ 讀取到了 XML，但未找到文章節點。");
+                return;
+            }
+
+            window.cfSearchData = Array.from(entries).map(entry => {
+                const titleNode = entry.querySelector('title');
+                const urlNode = entry.querySelector('url') || entry.querySelector('link');
+                const contentNode = entry.querySelector('content') || entry.querySelector('description');
+                const url = urlNode ? (urlNode.textContent || urlNode.getAttribute('href') || '') : '';
                 
-                console.log("成功获取到 XML 节点数量:", entries.length);
-
-                if (entries.length === 0) {
-                    console.error("未能识别 XML 中的文章节点，请在浏览器打开 /search.xml 查看标签名");
-                    return;
-                }
-
-                searchData = Array.from(entries).map(entry => {
-                    // 兼容提取标题
-                    const titleNode = entry.querySelector('title');
-                    // 兼容提取链接 (url 或 link)
-                    let urlNode = entry.querySelector('url') || entry.querySelector('link');
-                    // 兼容提取内容 (content 或 description)
-                    const contentNode = entry.querySelector('content') || entry.querySelector('description');
-
-                    let url = urlNode ? (urlNode.textContent || urlNode.getAttribute('href') || '') : '';
-                    
-                    return {
-                        title: titleNode ? titleNode.textContent : '',
-                        url: url,
-                        content: contentNode ? contentNode.textContent : ''
-                    };
-                });
-                console.log("搜索索引解析成功，数据已就绪:", searchData);
-            }).catch(err => {
-                console.error("加载或解析搜索索引失败，具体错误:", err);
+                return {
+                    title: titleNode ? titleNode.textContent : '無標題',
+                    url: url,
+                    content: contentNode ? contentNode.textContent : ''
+                };
             });
-    }
+            console.log("✅ 搜尋索引解析成功！共載入 " + window.cfSearchData.length + " 篇文章。");
+        })
+        .catch(err => {
+            console.error("❌ 搜尋索引載入失敗，可能您的博客未生成 search.xml。錯誤資訊:", err);
+        });
 }
 
-// 激活触发加载
-document.getElementById('search-input').addEventListener('focus', loadSearchData);
-
-// 核心搜索执行函数
-function doSearch(keyword, isSubmit = false) {
+// 2. 核心搜尋比對與渲染函數
+function executeLocalSearch(keyword, isSubmit = false) {
     const resultsContainer = document.getElementById('search-results');
+    if (!resultsContainer) return;
+    
     resultsContainer.innerHTML = ''; 
 
     if (keyword.length < 1) {
@@ -458,14 +451,14 @@ function doSearch(keyword, isSubmit = false) {
         return;
     }
 
-    if (!searchData || searchData.length === 0) {
+    if (!window.cfSearchData || window.cfSearchData.length === 0) {
         resultsContainer.style.display = 'block';
-        resultsContainer.innerHTML = '<div style="padding:15px;color:red;text-align:center;">搜索数据未就绪，请稍后再试或按 F12 检查控制台报错</div>';
+        resultsContainer.innerHTML = '<div style="padding:15px;color:#d9534f;text-align:center;font-size:13px;">資料載入中或 search.xml 異常，請稍後再試</div>';
         return;
     }
 
-    // 模糊匹配
-    const matched = searchData.filter(item => 
+    // 模糊搜尋比對
+    const matched = window.cfSearchData.filter(item => 
         item.title.toLowerCase().includes(keyword) || 
         item.content.toLowerCase().includes(keyword)
     );
@@ -475,35 +468,49 @@ function doSearch(keyword, isSubmit = false) {
         matched.forEach(item => {
             const div = document.createElement('div');
             div.className = 'search-result-item';
-            div.innerHTML = `<a href="${item.url}" style="display:block;padding:10px;color:#333;text-decoration:none;border-bottom:1px solid #eee;">
-                <strong style="color:#007bff;">${item.title}</strong>
-                ${isSubmit ? `<p style="margin:5px 0 0;font-size:13px;color:#666;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${item.content.replace(/<[^>]+>/g, '').substring(0, 100)}...</p>` : ''}
+            div.innerHTML = `<a href="${item.url}" style="display:block;padding:12px;color:#333;text-decoration:none;border-bottom:1px solid #f0f0f0;">
+                <strong style="color:#007bff;font-size:14px;">${item.title}</strong>
+                ${isSubmit ? `<p style="margin:5px 0 0;font-size:12px;color:#666;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.4;">${item.content.replace(/<[^>]+>/g, '').substring(0, 90)}...</p>` : ''}
             </a>`;
             resultsContainer.appendChild(div);
         });
     } else {
         resultsContainer.style.display = 'block';
-        resultsContainer.innerHTML = '<div style="padding:15px;color:#999;text-align:center;">没有找到相关文章，换个词试试吧~</div>';
+        resultsContainer.innerHTML = '<div style="padding:15px;color:#999;text-align:center;font-size:13px;">沒有找到相關文章，換個詞試試吧 ~</div>';
     }
 }
 
-// 监听实时输入
-document.getElementById('search-input').addEventListener('input', function(e) {
-    doSearch(e.target.value.trim().toLowerCase(), false);
+// 3. 【關鍵修復】使用全域事件代理監聽，完美相容動態渲染的搜尋框
+document.addEventListener('focusin', function(e) {
+    if (e.target && e.target.id === 'search-input') {
+        initCloudflareSearchData();
+    }
 });
 
-// 监听表单提交
-document.getElementById('search-form').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const keyword = document.getElementById('search-input').value.trim().toLowerCase();
-    doSearch(keyword, true);
+document.addEventListener('input', function(e) {
+    if (e.target && e.target.id === 'search-input') {
+        const keyword = e.target.value.trim().toLowerCase();
+        executeLocalSearch(keyword, false);
+    }
 });
 
-// 点击空白处隐藏
+document.addEventListener('submit', function(e) {
+    if (e.target && e.target.id === 'search-form') {
+        e.preventDefault(); // 阻止表單刷新頁面
+        const inputEl = document.getElementById('search-input');
+        if (inputEl) {
+            const keyword = inputEl.value.trim().toLowerCase();
+            executeLocalSearch(keyword, true);
+        }
+    }
+});
+
+// 點擊空白處隱藏結果框
 document.addEventListener('click', function(e) {
-    const form = document.getElementById('search-form');
-    if (!form.contains(e.target)) {
-        document.getElementById('search-results').style.display = 'none';
+    const resultsContainer = document.getElementById('search-results');
+    const formContainer = document.getElementById('search-form');
+    if (resultsContainer && formContainer && !formContainer.contains(e.target)) {
+        resultsContainer.style.display = 'none';
     }
 });
 </script>
