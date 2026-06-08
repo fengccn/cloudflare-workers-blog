@@ -208,7 +208,7 @@
 
 <script>
     // 使用 jsDelivr CDN 加速 GitHub 文件，确保国内稳定访问
-    fetch('https://cdn.jsdelivr.net/gh/fengccn/cloudflare-workers-blog@master/notice.json?v=1')
+  fetch('https://raw.githubusercontent.com/fengccn/cloudflare-workers-blog/master/notice.json?v=' + new Date().getTime())
         .then(res => {
             if (!res.ok) throw new Error('网络请求失败');
             return res.json();
