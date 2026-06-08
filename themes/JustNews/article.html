@@ -269,15 +269,31 @@
     </div>
  </div>
 					
-    <div id="linkcat-0" class="widget widget_links">
-        <h3 class="widget-title">
-            <span>更新订阅</span></h3>
-       <div style="text-align: center; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
-       <p>博客更新RSS订阅地址 </p>
-       <a href="https://rssweball.top/feed/afaf2a3c-e11a-4783-a358-9e2d20d76a69.xml" target="_blank" 
-       style="background-color: rgba(20, 123, 146, 1); color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
-       立即获取</a> </div>
-     </div> 
+<div class="widget widget_subscription">
+    <h3 class="widget-title"><span>订阅本站</span></h3>
+    <div class="subscription-container" style="padding: 5px 0;">
+        <p style="font-size: 13px; color: #666; margin-bottom: 12px; line-height: 1.5;">欢迎订阅，第一时间获取最新的摄影习作与旅行足迹：</p>
+        
+        <div class="sub-buttons-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            
+            <button onclick="copyFeedUrl('rss')" style="display: flex; align-items: center; justify-content: center; height: 38px; padding: 0 10px; background: #f26522; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; transition: opacity 0.2s; box-sizing: border-box;">
+                <svg style="width:16px; height:16px; margin-right:6px; fill:currentColor; flex-shrink: 0;" viewBox="0 0 24 24">
+                    <path d="M6.18,22.87A4.18,4.18,0,1,0,2,18.69,4.19,4.19,0,0,0,6.18,22.87ZM2,3.17V8.42A13.58,13.58,0,0,1,15.58,22H20.8A18.81,18.81,0,0,0,2,3.17Zm0,7.91v5.25A5.67,5.67,0,0,1,7.67,22h5.24A10.91,10.91,0,0,0,2,11.08Z"/>
+                </svg>
+                RSS 订阅
+            </button>
+            
+            <button onclick="copyFeedUrl('follow')" style="display: flex; align-items: center; justify-content: center; height: 38px; padding: 0 10px; background: #1a1a1a; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; transition: opacity 0.2s; box-sizing: border-box;">
+                <svg style="width:16px; height:16px; margin-right:6px; fill:currentColor; flex-shrink: 0;" viewBox="0 0 24 24">
+                    <path d="M12 2L2 22h20L12 2zm0 4.5L18.5 19h-13L12 6.5z"/>
+                </svg>
+                Follow
+            </button>
+            
+        </div>
+    </div>
+</div>
+
 					
 					
 					<div id="linkcat-0" class="widget widget_links">
@@ -508,6 +524,26 @@ document.addEventListener('click', function(e) {
         resultsContainer.style.display = 'none';
     }
 });
+
+
+function copyFeedUrl(type) {
+    const feedUrl = 'https://rssweball.top/feed/afaf2a3c-e11a-4783-a358-9e2d20d76a69.xml'; 
+    
+    navigator.clipboard.writeText(feedUrl).then(() => {
+        const toast = document.getElementById('toast-msg');
+        
+        if (type === 'rss') {
+            toast.innerText = "📋 订阅链接已复制，快去阅读器里粘贴吧！";
+        } else if (type === 'follow') {
+            toast.innerText = "🧡 链接已复制！请打开 Follow 客户端直接搜索订阅。";
+        }
+        
+        toast.style.display = 'block';
+        setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }).catch(err => {
+        alert("订阅链接为: " + feedUrl);
+    });
+}
 </script>
 		
 	</body>
