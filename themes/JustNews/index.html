@@ -203,13 +203,12 @@
      <h3 class="widget-title" class="widget-title">  
 	  <span>📢 站内公告</span></h3>
     <div class="sidebar-content" style="padding: 10px; font-size: 14px; line-height: 1.6; color: #555;">
-        <p style="margin-bottom: 8px; font-weight: bold; color: #ff5722;">✨ 新功能上线：</p>
        
 <div id="custom-notice">加载中...</div>
 
 <script>
     // 替换为你的 Gist Raw 地址或自己的 JSON 链接
-    fetch('你的Gist_RAW_JSON链接')
+    fetch('https://raw.githubusercontent.com/Arronlong/cfblog-plus/master/themes/JustNews/notice.json')
         .then(res => res.json())
         .then(data => {
             document.getElementById('custom-notice').innerHTML = `
