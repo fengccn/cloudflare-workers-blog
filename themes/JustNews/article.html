@@ -87,6 +87,25 @@
 .search-result-item:hover {
     background-color: #f8f9fa;
 }
+
+/* 限制右侧标签栏高度，超出时支持上下滚动 */
+.tagcloud {
+    max-height: 220px;       /* 固定标签栏最大高度，你可以根据需要微调数值 */
+    overflow-y: auto;        /* 垂直方向超出高度时自动出现滚动条 */
+    padding-right: 8px;      /* 留出右侧间距，防止滚动条遮挡标签文字 */
+}
+
+/* 美化滚动条：让它变得极细、圆润且不突兀，完美融入博客设计 */
+.tagcloud::-webkit-scrollbar {
+    width: 5px;              /* 滚动条宽度 */
+}
+.tagcloud::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.15); /* 浅灰色半透明滑块 */
+    border-radius: 4px;                    /* 滑块圆角 */
+}
+.tagcloud::-webkit-scrollbar-track {
+    background: transparent;                /* 轨道完全透明 */
+}
 </style>
 
 
