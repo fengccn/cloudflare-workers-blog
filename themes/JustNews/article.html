@@ -550,11 +550,12 @@ function copyFeedUrl(type) {
 
 
 <style>
+        /* 独立的 EXIF 悬浮气泡 */
         .exif-popover-standalone {
             position: absolute;
             background: rgba(0, 0, 0, 0.8);
             -webkit-backdrop-filter: blur(8px);
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px); /* 磨砂玻璃效果 */
             color: #fff;
             padding: 6px 14px;
             border-radius: 6px;
@@ -562,7 +563,7 @@ function copyFeedUrl(type) {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             line-height: 1.4;
             z-index: 99999;
-            pointer-events: none;
+            pointer-events: none; /* 鼠标移上去时不干扰任何点击 */
             box-shadow: 0 4px 16px rgba(0,0,0,0.4);
             border: 1px solid rgba(255,255,255,0.15);
             opacity: 0;
@@ -575,99 +576,104 @@ function copyFeedUrl(type) {
 
     <script>
     (function() {
+        // 用来记录已经处理过 EXIF 的图片，防止重复绑定
         const processedImages = new Set();
 
+        // 核心函数：处理单张图片
         function processImage(img) {
             if (processedImages.has(img)) return;
+            
+            // 排除过小的非摄影作品图
             if (img.width > 0 && img.width < 300) return;
+
+            // 如果图片还没加载完真正的地址，先不处理
             if (!img.src || img.src.startsWith('data:')) return;
 
+            // 标记已处理，防止死循环
             processedImages.add(img);
-            console.log('【⚙️ 调试】成功捕获到正文图片，正在准备克隆读取:', img.src);
 
             const tempImg = new Image();
-            
-            // 如果是外部图床链接（比如你的R2），强制开启跨域凭证
+            tempImg.crossOrigin = "anonymous";
+
+            // 【核心破壁逻辑】如果不是本站域名，直接走免费的 CORS 代理通道，原封不动吐出带跨域许可的图片二进制数据
             if (!img.src.includes(window.location.hostname)) {
-                tempImg.crossOrigin = "anonymous";
-                console.log('【⚙️ 调试】检测到外部R2图片，已强制开启 crossOrigin = "anonymous"');
+                tempImg.src = "https://corsproxy.io/?" + encodeURIComponent(img.src);
+            } else {
+                tempImg.src = img.src;
             }
 
             tempImg.onload = function() {
-                console.log('【⚙️ 调试】克隆的隐形图片加载成功，开始解析 EXIF 数据...');
-                
-                EXIF.getData(tempImg, function() {
-                    let make = EXIF.getTag(this, "Make") || "";         
-                    let model = EXIF.getTag(this, "Model") || "";       
-                    let f = EXIF.getTag(this, "FNumber");               
-                    let iso = EXIF.getTag(this, "ISOSpeedRatings");     
-                    let shutter = EXIF.getTag(this, "ExposureTime");   
-                    let focal = EXIF.getTag(this, "FocalLength");       
+                try {
+                    EXIF.getData(tempImg, function() {
+                        let make = EXIF.getTag(this, "Make") || "";         
+                        let model = EXIF.getTag(this, "Model") || "";       
+                        let f = EXIF.getTag(this, "FNumber");               
+                        let iso = EXIF.getTag(this, "ISOSpeedRatings");     
+                        let shutter = EXIF.getTag(this, "ExposureTime");   
+                        let focal = EXIF.getTag(this, "FocalLength");       
 
-                    console.log('【⚙️ 调试】提取到的原生数据:', { 相机品牌: make, 相机型号: model, 光圈: f, ISO: iso, 快门: shutter, 焦距: focal });
+                        // 如果不含关键摄影元数据，直接跳过
+                        if (!model && !f) return;
 
-                    // 如果不含关键摄影元数据，直接释放并跳过
-                    if (!model && !f) {
-                        console.warn('【⚠️ 警告】这张图片内没有找到任何相机型号或光圈数据（可能在上传/压缩时被洗掉了）');
-                        return;
-                    }
+                        // 规范化品牌名
+                        make = make.split(' ')[0] || "";
 
-                    make = make.split(' ')[0] || "";
+                        // 转换快门速度格式
+                        let shutterStr = shutter;
+                        if (shutter && shutter < 1) {
+                            shutterStr = `1/${Math.round(1 / shutter)}s`;
+                        } else if (shutter) {
+                            shutterStr = `${shutter}s`;
+                        }
 
-                    let shutterStr = shutter;
-                    if (shutter && shutter < 1) {
-                        shutterStr = `1/${Math.round(1 / shutter)}s`;
-                    } else if (shutter) {
-                        shutterStr = `${shutter}s`;
-                    }
+                        const fStr = f ? `f/${f}` : "";
+                        const focalStr = focal ? `${Math.round(focal)}mm` : "";
+                        const isoStr = iso ? `ISO ${iso}` : "";
 
-                    const fStr = f ? `f/${f}` : "";
-                    const focalStr = focal ? `${Math.round(focal)}mm` : "";
-                    const isoStr = iso ? `ISO ${iso}` : "";
+                        // 组装气泡文本
+                        const parts = [`📷 ${make} ${model}`, focalStr, fStr, shutterStr, isoStr].filter(Boolean);
+                        const exifText = parts.join(' · ');
 
-                    const parts = [`📷 ${make} ${model}`, focalStr, fStr, shutterStr, isoStr].filter(Boolean);
-                    const exifText = parts.join(' · ');
+                        // 创建悬浮气泡挂载到 body
+                        const popover = document.createElement('div');
+                        popover.className = 'exif-popover-standalone';
+                        popover.innerHTML = exifText;
+                        document.body.appendChild(popover);
 
-                    const popover = document.createElement('div');
-                    popover.className = 'exif-popover-standalone';
-                    popover.innerHTML = exifText;
-                    document.body.appendChild(popover);
+                        // 绑定原图的鼠标悬停事件
+                        img.addEventListener('mouseenter', function() {
+                            const rect = img.getBoundingClientRect();
+                            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                            const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
 
-                    img.addEventListener('mouseenter', function() {
-                        const rect = img.getBoundingClientRect();
-                        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-                        const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+                            // 定位到图片左下角
+                            popover.style.top = (rect.bottom + scrollTop - popover.offsetHeight - 15) + 'px';
+                            popover.style.left = (rect.left + scrollLeft + 15) + 'px';
+                            popover.style.opacity = '1';
+                            popover.style.transform = 'translateY(0)';
+                        });
 
-                        popover.style.top = (rect.bottom + scrollTop - popover.offsetHeight - 15) + 'px';
-                        popover.style.left = (rect.left + scrollLeft + 15) + 'px';
-                        popover.style.opacity = '1';
-                        popover.style.transform = 'translateY(0)';
+                        img.addEventListener('mouseleave', function() {
+                            popover.style.opacity = '0';
+                            popover.style.transform = 'translateY(5px)';
+                        });
                     });
-
-                    img.addEventListener('mouseleave', function() {
-                        popover.style.opacity = '0';
-                        popover.style.transform = 'translateY(5px)';
-                    });
-                    
-                    console.log('【✅ 成功】该图片的 EXIF 悬浮框已成功绑定！');
-                });
+                } catch (e) {
+                    // 静默容错
+                }
             };
             
-            tempImg.onerror = function(err) {
-                console.error('【❌ 错误】克隆图片加载失败，通常是由于 R2 的 CORS 跨域拦截导致的！', err);
+            // 容错处理：如果代理偶尔抽风，不至于卡死
+            tempImg.onerror = function() {
+                // 悄悄失败，不影响原图
             };
-
-            tempImg.src = img.src;
         }
 
+        // 使用 MutationObserver 动态监控正文
         function initObserver() {
             const container = document.querySelector('.entry-content');
-            if (!container) {
-                console.error('【❌ 错误】在网页中找不到类名为 .entry-content 的文章正文容器！请检查主题HTML。');
-                return;
-            }
+            if (!container) return;
 
-            console.log('【⚙️ 调试】DOM就绪，成功锁定文章正文，全天候监控开启...');
             container.querySelectorAll('img').forEach(processImage);
 
             const observer = new MutationObserver(function(mutations) {
