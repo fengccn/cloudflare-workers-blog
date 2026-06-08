@@ -594,65 +594,77 @@ function copyFeedUrl(type) {
 
             // 优雅克隆一个隐形图片来读取 EXIF，绝不污染和干扰页面上的原图属性！
             const tempImg = new Image();
-            tempImg.crossOrigin = "anonymous";
-            tempImg.src = img.src;
+            
+            // 【优化点 1】只有当图片是外部R2链接时，才加 crossOrigin
+            if (!img.src.includes(window.location.hostname)) {
+                tempImg.crossOrigin = "anonymous";
+            }
 
+            // 【优化点 2】onload 必须写在 src 赋值之前，否则在图片有浏览器缓存时可能不触发 onload
             tempImg.onload = function() {
-                EXIF.getData(tempImg, function() {
-                    let make = EXIF.getTag(this, "Make") || "";         
-                    let model = EXIF.getTag(this, "Model") || "";       
-                    let f = EXIF.getTag(this, "FNumber");               
-                    let iso = EXIF.getTag(this, "ISOSpeedRatings");     
-                    let shutter = EXIF.getTag(this, "ExposureTime");   
-                    let focal = EXIF.getTag(this, "FocalLength");       
+                // 增加一层安全容错，防止第三方库报错导致页面崩溃
+                try {
+                    EXIF.getData(tempImg, function() {
+                        let make = EXIF.getTag(this, "Make") || "";         
+                        let model = EXIF.getTag(this, "Model") || "";       
+                        let f = EXIF.getTag(this, "FNumber");               
+                        let iso = EXIF.getTag(this, "ISOSpeedRatings");     
+                        let shutter = EXIF.getTag(this, "ExposureTime");   
+                        let focal = EXIF.getTag(this, "FocalLength");       
 
-                    // 如果不含关键摄影元数据，直接释放并跳过
-                    if (!model && !f) return;
+                        // 如果不含关键摄影元数据，直接释放并跳过
+                        if (!model && !f) return;
 
-                    // 规范化品牌名
-                    make = make.split(' ')[0] || "";
+                        // 规范化品牌名
+                        make = make.split(' ')[0] || "";
 
-                    // 转换快门速度格式
-                    let shutterStr = shutter;
-                    if (shutter && shutter < 1) {
-                        shutterStr = `1/${Math.round(1 / shutter)}s`;
-                    } else if (shutter) {
-                        shutterStr = `${shutter}s`;
-                    }
+                        // 转换快门速度格式
+                        let shutterStr = shutter;
+                        if (shutter && shutter < 1) {
+                            shutterStr = `1/${Math.round(1 / shutter)}s`;
+                        } else if (shutter) {
+                            shutterStr = `${shutter}s`;
+                        }
 
-                    const fStr = f ? `f/${f}` : "";
-                    const focalStr = focal ? `${Math.round(focal)}mm` : "";
-                    const isoStr = iso ? `ISO ${iso}` : "";
+                        const fStr = f ? `f/${f}` : "";
+                        const focalStr = focal ? `${Math.round(focal)}mm` : "";
+                        const isoStr = iso ? `ISO ${iso}` : "";
 
-                    // 组装气泡文本
-                    const parts = [`📷 ${make} ${model}`, focalStr, fStr, shutterStr, isoStr].filter(Boolean);
-                    const exifText = parts.join(' · ');
+                        // 组装气泡文本
+                        const parts = [`📷 ${make} ${model}`, focalStr, fStr, shutterStr, isoStr].filter(Boolean);
+                        const exifText = parts.join(' · ');
 
-                    // 创建悬浮气泡挂载到 body
-                    const popover = document.createElement('div');
-                    popover.className = 'exif-popover-standalone';
-                    popover.innerHTML = exifText;
-                    document.body.appendChild(popover);
+                        // 创建悬浮气泡挂载到 body
+                        const popover = document.createElement('div');
+                        popover.className = 'exif-popover-standalone';
+                        popover.innerHTML = exifText;
+                        document.body.appendChild(popover);
 
-                    // 绑定原图的鼠标悬停事件
-                    img.addEventListener('mouseenter', function() {
-                        const rect = img.getBoundingClientRect();
-                        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-                        const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+                        // 绑定原图的鼠标悬停事件
+                        img.addEventListener('mouseenter', function() {
+                            const rect = img.getBoundingClientRect();
+                            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                            const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
 
-                        // 定位到图片左下角
-                        popover.style.top = (rect.bottom + scrollTop - popover.offsetHeight - 15) + 'px';
-                        popover.style.left = (rect.left + scrollLeft + 15) + 'px';
-                        popover.style.opacity = '1';
-                        popover.style.transform = 'translateY(0)';
+                            // 定位到图片左下角
+                            popover.style.top = (rect.bottom + scrollTop - popover.offsetHeight - 15) + 'px';
+                            popover.style.left = (rect.left + scrollLeft + 15) + 'px';
+                            popover.style.opacity = '1';
+                            popover.style.transform = 'translateY(0)';
+                        });
+
+                        img.addEventListener('mouseleave', function() {
+                            popover.style.opacity = '0';
+                            popover.style.transform = 'translateY(5px)';
+                        });
                     });
-
-                    img.addEventListener('mouseleave', function() {
-                        popover.style.opacity = '0';
-                        popover.style.transform = 'translateY(5px)';
-                    });
-                });
+                } catch(e) {
+                    console.log('EXIF解析跳过:', e);
+                }
             };
+            
+            // 赋值 src，启动加载
+            tempImg.src = img.src;
         }
 
         // 使用 MutationObserver 动态监控正文，对抗主题的懒加载重写机制
@@ -691,7 +703,6 @@ function copyFeedUrl(type) {
         }
     })();
     </script>
-    ```
 
 	</body>
 	
