@@ -553,42 +553,52 @@ function copyFeedUrl(type) {
         /* 独立的 EXIF 悬浮气泡 */
         .exif-popover-standalone {
             position: absolute;
-            background: rgba(0, 0, 0, 0.75);
-            -webkit-backdrop-filter: blur(5px);
-            backdrop-filter: blur(5px); /* 磨砂玻璃效果 */
+            background: rgba(0, 0, 0, 0.8);
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px); /* 磨砂玻璃效果 */
             color: #fff;
-            padding: 6px 12px;
+            padding: 6px 14px;
             border-radius: 6px;
             font-size: 11px;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             line-height: 1.4;
-            z-index: 9999;
-            pointer-events: none; /* 鼠标移上去时不干扰点击 */
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            border: 1px solid rgba(255,255,255,0.1);
+            z-index: 99999;
+            pointer-events: none; /* 鼠标移上去时不干扰任何点击 */
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.15);
             opacity: 0;
-            transition: opacity 0.25s ease;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            transform: translateY(5px);
         }
     </style>
 
     <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
 
     <script>
-    window.addEventListener('load', function() {
-        // 2. 定位正文里的所有图片
-        const images = document.querySelectorAll('.entry-content img');
-        
-        images.forEach(function(img) {
+    (function() {
+        // 用来记录已经处理过 EXIF 的图片，防止重复绑定
+        const processedImages = new Set();
+
+        // 核心函数：处理单张图片
+        function processImage(img) {
+            if (processedImages.has(img)) return;
+            
             // 排除过小的非摄影作品图
-            if (img.width < 300 && img.height < 300) return; 
+            if (img.width > 0 && img.width < 300) return;
 
-            // 核心安全机制：允许跨域读取图片元数据
-            img.setAttribute('crossOrigin', 'anonymous');
+            // 如果图片还没加载完真正的地址，先不处理
+            if (!img.src || img.src.startsWith('data:')) return;
 
-            // 监听图片加载完毕
-            img.addEventListener('load', function() {
-                EXIF.getData(img, function() {
-                    // 3. 提取核心摄影参数
+            // 标记已处理，防止死循环
+            processedImages.add(img);
+
+            // 优雅克隆一个隐形图片来读取 EXIF，绝不污染和干扰页面上的原图属性！
+            const tempImg = new Image();
+            tempImg.crossOrigin = "anonymous";
+            tempImg.src = img.src;
+
+            tempImg.onload = function() {
+                EXIF.getData(tempImg, function() {
                     let make = EXIF.getTag(this, "Make") || "";         
                     let model = EXIF.getTag(this, "Model") || "";       
                     let f = EXIF.getTag(this, "FNumber");               
@@ -596,13 +606,13 @@ function copyFeedUrl(type) {
                     let shutter = EXIF.getTag(this, "ExposureTime");   
                     let focal = EXIF.getTag(this, "FocalLength");       
 
-                    // 如果不含关键EXIF数据，直接跳过
+                    // 如果不含关键摄影元数据，直接释放并跳过
                     if (!model && !f) return;
 
                     // 规范化品牌名
                     make = make.split(' ')[0] || "";
 
-                    // 4. 转换快门速度格式
+                    // 转换快门速度格式
                     let shutterStr = shutter;
                     if (shutter && shutter < 1) {
                         shutterStr = `1/${Math.round(1 / shutter)}s`;
@@ -614,42 +624,72 @@ function copyFeedUrl(type) {
                     const focalStr = focal ? `${Math.round(focal)}mm` : "";
                     const isoStr = iso ? `ISO ${iso}` : "";
 
-                    // 5. 组合成精美的摄影参数文本
+                    // 组装气泡文本
                     const parts = [`📷 ${make} ${model}`, focalStr, fStr, shutterStr, isoStr].filter(Boolean);
                     const exifText = parts.join(' · ');
 
-                    // 6. 创建气泡，直接挂载到 body 下，不破坏文章原本的图片 HTML 结构
+                    // 创建悬浮气泡挂载到 body
                     const popover = document.createElement('div');
                     popover.className = 'exif-popover-standalone';
                     popover.innerHTML = exifText;
                     document.body.appendChild(popover);
 
-                    // 7. 鼠标移入图片时：精准计算图片在屏幕上的绝对位置，把气泡贴过去
+                    // 绑定原图的鼠标悬停事件
                     img.addEventListener('mouseenter', function() {
-                        // 获取图片在当前视口中的绝对坐标
                         const rect = img.getBoundingClientRect();
                         const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
                         const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
 
-                        // 将气泡定位在图片的左下角（留出 15px 的精致边距）
+                        // 定位到图片左下角
                         popover.style.top = (rect.bottom + scrollTop - popover.offsetHeight - 15) + 'px';
                         popover.style.left = (rect.left + scrollLeft + 15) + 'px';
                         popover.style.opacity = '1';
+                        popover.style.transform = 'translateY(0)';
                     });
 
-                    // 8. 鼠标移出图片时：隐藏气泡
                     img.addEventListener('mouseleave', function() {
                         popover.style.opacity = '0';
+                        popover.style.transform = 'translateY(5px)';
                     });
                 });
+            };
+        }
+
+        // 使用 MutationObserver 动态监控正文，对抗主题的懒加载重写机制
+        function initObserver() {
+            const container = document.querySelector('.entry-content');
+            if (!container) return;
+
+            // 1. 先把当前已经出来的图片过一遍
+            container.querySelectorAll('img').forEach(processImage);
+
+            // 2. 开启全天候监控
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'childList') {
+                        mutation.target.querySelectorAll('img').forEach(processImage);
+                    } else if (mutation.type === 'attributes' && mutation.attributeName === 'src') {
+                        // 如果图片的 src 被懒加载脚本修改了，重新触发读取
+                        processImage(mutation.target);
+                    }
+                });
             });
-            
-            // 针对已经加载完毕的图片（比如无痕或非首次加载），手动触发一次逻辑
-            if (img.complete) {
-                img.dispatchEvent(new Event('load'));
-            }
-        });
-    });
+
+            observer.observe(container, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['src']
+            });
+        }
+
+        // 确保在 DOM 准备就绪时立即启动
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initObserver);
+        } else {
+            initObserver();
+        }
+    })();
     </script>
     ```
 
