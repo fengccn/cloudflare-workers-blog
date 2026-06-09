@@ -549,51 +549,60 @@ function copyFeedUrl(type) {
 </script>
 
 
-	<script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
 
 <script>
-window.addEventListener('DOMContentLoaded', (event) => {
-    // 找到文章里的图片
-    const images = document.querySelectorAll('.post-content img, article img');
-    
-    images.forEach(img => {
-        // 创建一个全新的图片对象来异步解析 EXIF，防止干扰原生图片加载
-        const tempImg = new Image();
-        tempImg.crossOrigin = "anonymous"; 
+(function() {
+    // 监听全局图片加载，这样不管是先加载完还是后加载完，都能捕捉到
+    document.addEventListener('load', function(event) {
+        const element = event.target;
         
-        // 给图片加上时间戳混淆缓存，彻底解决 CORS 缓存冲突问题
-        tempImg.src = img.src + (img.src.indexOf('?') > -1 ? '&' : '?') + 'timestamp=' + new Date().getTime();
+        // 只处理文章区域内的图片，且确保它还没被解析过
+        if (element.tagName === 'IMG' && (element.closest('.post-content') || element.closest('article')) && !element.dataset.exifDone) {
+            
+            // 标记该图片已处理，防止死循环
+            element.dataset.exifDone = "true";
 
-        tempImg.onload = function() {
-            EXIF.getData(tempImg, function() {
-                const make = EXIF.getTag(this, "Make") || "";
-                const model = EXIF.getTag(this, "Model") || "";
-                const fNumber = EXIF.getTag(this, "FNumber");
-                const exposureTime = EXIF.getTag(this, "ExposureTime");
-                const iso = EXIF.getTag(this, "ISOSpeedRatings");
-                const focalLength = EXIF.getTag(this, "FocalLength");
+            // 只有当图片有完整 URL 且不是 base64 时才读取
+            if (element.src && element.src.startsWith('http')) {
+                // 允许跨域读取（配合你已经设置好的 CORS 策略）
+                element.setAttribute('crossorigin', 'anonymous');
 
-                // 如果读不到相机型号，说明没有 EXIF，静默退出
-                if (!model) return;
+                EXIF.getData(element, function() {
+                    const model = EXIF.getTag(this, "Model");
+                    const fNumber = EXIF.getTag(this, "FNumber");
+                    const exposureTime = EXIF.getTag(this, "ExposureTime");
+                    const iso = EXIF.getTag(this, "ISOSpeedRatings");
+                    const focalLength = EXIF.getTag(this, "FocalLength");
 
-                // 格式化快门
-                let shutter = exposureTime;
-                if (exposureTime && exposureTime < 1) {
-                    shutter = `1/${Math.round(1 / exposureTime)}`;
-                }
+                    // 如果读不到核心的相机型号，说明没有 EXIF，静默退出
+                    if (!model) return;
 
-                // 组装文本
-                const infoText = `📷 ${model} · ƒ/${fNumber} · ${shutter}s · ISO ${iso} · ${focalLength}mm`;
+                    // 格式化快门速度
+                    let shutter = exposureTime;
+                    if (exposureTime && exposureTime < 1) {
+                        shutter = `1/${Math.round(1 / exposureTime)}`;
+                    }
 
-                // 插入到原图正下方
-                const infoDiv = document.createElement('div');
-                infoDiv.className = 'img-exif-info';
-                infoDiv.innerText = infoText;
-                img.parentNode.insertBefore(infoDiv, img.nextSibling);
-            });
-        };
-    });
-});
+                    // 组装文本
+                    const infoText = `📷 ${model} · ƒ/${fNumber} · ${shutter}s · ISO ${iso} · ${focalLength}mm`;
+
+                    // 创建并插入展示层
+                    const infoDiv = document.createElement('div');
+                    infoDiv.className = 'img-exif-info';
+                    infoDiv.innerText = infoText;
+                    
+                    // 确保插入到图片的正下方
+                    if (element.nextSibling) {
+                        element.parentNode.insertBefore(infoDiv, element.nextSibling);
+                    } else {
+                        element.parentNode.appendChild(infoDiv);
+                    }
+                });
+            }
+        }
+    }, true); // 使用事件捕获，确保能监听到所有图片的 load 事件
+})();
 </script>
 
 <style>
@@ -606,7 +615,6 @@ window.addEventListener('DOMContentLoaded', (event) => {
     font-family: monospace;
 }
 </style>
-
 
 	</body>
 	
