@@ -622,8 +622,10 @@ window.addEventListener('load', () => {
 
 
 
-<div id="blog-lightbox" style="display: none; position: fixed; z-index: 99999; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); align-items: center; justify-content: center; cursor: zoom-out;">
-    <img id="lightbox-target-img" src="" style="max-width: 90%; max-height: 90%; object-fit: contain; box-shadow: 0 0 25px rgba(0,0,0,0.5); border-radius: 4px; transition: transform 0.2s ease;">
+<div id="blog-lightbox" style="display: none; position: fixed; z-index: 99999; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); align-items: center; justify-content: center; cursor: zoom-out;">
+    <img id="lightbox-target-img" src="" style="display: none; max-width: 90%; max-height: 90%; object-fit: contain; box-shadow: 0 0 25px rgba(0,0,0,0.5); border-radius: 4px;">
+    
+    <video id="lightbox-target-video" controls autoplay style="display: none; max-width: 85%; max-height: 85%; box-shadow: 0 0 25px rgba(0,0,0,0.5); border-radius: 4px; background: #000;" onclick="event.stopPropagation();"></video>
 </div>
 
 <script>
@@ -631,9 +633,12 @@ document.addEventListener("DOMContentLoaded", function () {
     var articleBody = document.querySelector('.article-content') || document.querySelector('.post-content') || document.querySelector('.entry-content') || document.body;
     var lightbox = document.getElementById('blog-lightbox');
     var lightboxImg = document.getElementById('lightbox-target-img');
+    var lightboxVideo = document.getElementById('lightbox-target-video');
 
-    // 用于判断链接是否为图片的正则表达式（兼容常见图片格式，忽略大小写）
+    // 匹配图片格式的正则
     var imageRegex = /\.(jpeg|jpg|gif|png|webp|svg|bmp)(\?.*)?$/i;
+    // 匹配 MP4 视频格式的正则
+    var videoRegex = /\.(mp4)(\?.*)?$/i;
 
     if (articleBody) {
         var imgs = articleBody.querySelectorAll('img');
@@ -641,42 +646,67 @@ document.addEventListener("DOMContentLoaded", function () {
         imgs.forEach(function(img) {
             var parent = img.parentElement;
             
-            // 情况 A：如果图片外面有 <a> 标签包裹
             if (parent && parent.tagName === 'A') {
                 var linkUrl = parent.getAttribute('href') || '';
                 
-                // 【核心修改】：只有当链接本身指向的也是一张图片时，才启动灯箱
-                if (imageRegex.test(linkUrl)) {
-                    img.style.cursor = 'zoom-in'; // 变成放大镜手势
+                // 情况 1：链接是 MP4 视频
+                if (videoRegex.test(linkUrl)) {
+                    img.style.cursor = 'pointer'; // 变成手形，提示可播放
                     parent.addEventListener('click', function(e) {
-                        e.preventDefault();  // 阻止原有的图片链接跳转
+                        e.preventDefault();
                         e.stopPropagation();
-                        openLightbox(img.src);
+                        openMediaLightbox('video', linkUrl);
                     });
-                } else {
-                    // 如果链接是视频（如 bili, youtube）或普通网页，不做任何拦截，保持原样
-                    img.style.cursor = 'pointer'; // 变成手形指针，提示可点击跳转
+                } 
+                // 情况 2：链接是普通图片
+                else if (imageRegex.test(linkUrl)) {
+                    img.style.cursor = 'zoom-in';
+                    parent.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openMediaLightbox('image', img.src);
+                    });
                 }
+                // 情况 3：其他外部跳转链接（保持原样）
             } 
-            // 情况 B：如果图片外面没有 <a> 标签包裹，说明是普通文章插图，直接加灯箱
+            // 情况 4：图片没有被 A 标签包裹（普通插图，走图片灯箱）
             else {
                 img.style.cursor = 'zoom-in';
                 img.addEventListener('click', function(e) {
                     e.stopPropagation();
-                    openLightbox(this.src);
+                    openMediaLightbox('image', this.src);
                 });
             }
         });
     }
 
-    function openLightbox(src) {
-        lightboxImg.src = src;
+    // 统一打开媒体灯箱的函数
+    function openMediaLightbox(type, url) {
+        // 先隐藏所有媒体标签并清空数据
+        lightboxImg.style.display = 'none';
+        lightboxImg.src = '';
+        lightboxVideo.style.display = 'none';
+        lightboxVideo.src = '';
+        lightboxVideo.pause();
+
+        if (type === 'video') {
+            lightboxVideo.src = url;
+            lightboxVideo.style.display = 'block';
+            lightboxVideo.load(); // 重新加载视频源
+        } else if (type === 'image') {
+            lightboxImg.src = url;
+            lightboxImg.style.display = 'block';
+        }
+        
         lightbox.style.display = 'flex';
     }
 
+    // 点击背景关闭灯箱
     lightbox.addEventListener('click', function() {
         lightbox.style.display = 'none';
         lightboxImg.src = '';
+        lightboxVideo.pause(); // 关闭时必须暂停视频，否则后台还会有声音
+        lightboxVideo.src = '';
     });
 });
 </script>
