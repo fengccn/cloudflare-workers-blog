@@ -549,20 +549,23 @@ function copyFeedUrl(type) {
 </script>
 
 
-<script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
 
 <script>
 window.addEventListener('DOMContentLoaded', (event) => {
-    // 2. 找到文章主体里的所有图片（根据你博客的实际 class 调整，通常 .post-content img 或 article img 适用）
+    // 找到文章里的图片
     const images = document.querySelectorAll('.post-content img, article img');
     
     images.forEach(img => {
-        // 确保图片跨域允许读取（读取 EXIF 需要这个属性）
-        img.setAttribute('crossorigin', 'anonymous');
+        // 创建一个全新的图片对象来异步解析 EXIF，防止干扰原生图片加载
+        const tempImg = new Image();
+        tempImg.crossOrigin = "anonymous"; 
+        
+        // 给图片加上时间戳混淆缓存，彻底解决 CORS 缓存冲突问题
+        tempImg.src = img.src + (img.src.indexOf('?') > -1 ? '&' : '?') + 'timestamp=' + new Date().getTime();
 
-        img.onload = function() {
-            EXIF.getData(img, function() {
-                // 3. 获取需要的核心摄影参数
+        tempImg.onload = function() {
+            EXIF.getData(tempImg, function() {
                 const make = EXIF.getTag(this, "Make") || "";
                 const model = EXIF.getTag(this, "Model") || "";
                 const fNumber = EXIF.getTag(this, "FNumber");
@@ -570,24 +573,22 @@ window.addEventListener('DOMContentLoaded', (event) => {
                 const iso = EXIF.getTag(this, "ISOSpeedRatings");
                 const focalLength = EXIF.getTag(this, "FocalLength");
 
-                // 如果连相机型号都没读到，说明图片没有 EXIF 信息，直接跳过
+                // 如果读不到相机型号，说明没有 EXIF，静默退出
                 if (!model) return;
 
-                // 4. 格式化快门速度（处理成 1/125s 这种形式）
+                // 格式化快门
                 let shutter = exposureTime;
                 if (exposureTime && exposureTime < 1) {
                     shutter = `1/${Math.round(1 / exposureTime)}`;
                 }
 
-                // 5. 组装展示文本
+                // 组装文本
                 const infoText = `📷 ${model} · ƒ/${fNumber} · ${shutter}s · ISO ${iso} · ${focalLength}mm`;
 
-                // 6. 创建一个样式优雅的小标签，插在图片正下方
+                // 插入到原图正下方
                 const infoDiv = document.createElement('div');
                 infoDiv.className = 'img-exif-info';
                 infoDiv.innerText = infoText;
-                
-                // 让小字紧跟在图片后面
                 img.parentNode.insertBefore(infoDiv, img.nextSibling);
             });
         };
@@ -600,13 +601,12 @@ window.addEventListener('DOMContentLoaded', (event) => {
     text-align: center;
     font-size: 0.8rem;
     color: #888;
-    margin-top: -10px; /* 让它贴近图片 */
-    margin-bottom: 20px; /* 与下方文字保持距离 */
-    font-family: monospace; /* 程序员和摄影师都喜欢的等宽字体 */
+    margin-top: 5px; 
+    margin-bottom: 25px; 
+    font-family: monospace;
 }
 </style>
 
-		
 
 	</body>
 	
