@@ -621,47 +621,57 @@ window.addEventListener('load', () => {
 </style>
 
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/luminous-lightbox/2.4.0/luminous-basic.min.css">
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/luminous-lightbox/2.4.0/Luminous.min.js"></script>
+<div id="blog-lightbox" style="display: none; position: fixed; z-index: 99999; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); align-items: center; justify-content: center; cursor: zoom-out;">
+    <img id="lightbox-target-img" src="" style="max-width: 90%; max-height: 90%; object-fit: contain; box-shadow: 0 0 25px rgba(0,0,0,0.5); border-radius: 4px; transition: transform 0.2s ease;">
+</div>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     // 自动适配 JustNews 常见文章容器类名
-    var articleContent = document.querySelector('.article-content') || document.querySelector('.post-content') || document.querySelector('.entry-content') || document.body;
+    var articleBody = document.querySelector('.article-content') || document.querySelector('.post-content') || document.querySelector('.entry-content') || document.body;
     
-    if (articleContent) {
-        var images = articleContent.querySelectorAll('img');
+    var lightbox = document.getElementById('blog-lightbox');
+    var lightboxImg = document.getElementById('lightbox-target-img');
+
+    if (articleBody) {
+        // 找到文章内的所有图片
+        var imgs = articleBody.querySelectorAll('img');
         
-        images.forEach(function (img) {
+        imgs.forEach(function(img) {
+            // 给图片鼠标指针变成放大镜形状
+            img.style.cursor = 'zoom-in';
+            
+            // 找到图片的父级标签
             var parent = img.parentElement;
             
-            // 情况 A：如果图片外面已经有 a 标签了
             if (parent && parent.tagName === 'A') {
-                // 给现有的 a 标签加上灯箱需要的类名
-                parent.classList.add('gallery-link');
-                
-                // 阻止点击时直接跳转网页的默认行为
+                // 如果父级是 A 标签（带链接），拦截它的跳转，改为触发灯箱
                 parent.addEventListener('click', function(e) {
-                    e.preventDefault(); 
+                    e.preventDefault(); // 阻止原有的链接跳转
+                    e.stopPropagation(); // 阻止事件冒泡
+                    openLightbox(img.src);
                 });
-            } 
-            // 情况 B：如果图片外面没有 a 标签
-            else {
-                var link = document.createElement('a');
-                link.href = img.src;
-                link.className = 'gallery-link';
-                img.parentNode.insertBefore(link, img);
-                link.appendChild(img);
+            } else {
+                // 如果没有 A 标签包裹，直接给图片绑定点击事件
+                img.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    openLightbox(this.src);
+                });
             }
         });
-        
-        // 重新初始化灯箱效果
-        var galleryLinks = articleContent.querySelectorAll('.gallery-link');
-        if (galleryLinks.length > 0) {
-            new LuminousGallery(galleryLinks);
-        }
     }
+
+    // 打开灯箱的函数
+    function openLightbox(src) {
+        lightboxImg.src = src;
+        lightbox.style.display = 'flex';
+    }
+
+    // 点击灯箱背景或大图本身，关闭灯箱返回文章
+    lightbox.addEventListener('click', function() {
+        lightbox.style.display = 'none';
+        lightboxImg.src = '';
+    });
 });
 </script>
 
