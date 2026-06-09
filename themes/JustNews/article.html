@@ -549,7 +549,6 @@ function copyFeedUrl(type) {
 </script>
 
 
-
 <script src="https://cdn.jsdelivr.net/npm/exifreader@4.23.3/dist/exif-reader.js"></script>
 
 <script>
@@ -558,55 +557,60 @@ window.addEventListener('load', () => {
     const images = document.querySelectorAll('.post-content img, article img');
     
     images.forEach(img => {
-        // 确保图片加载完再处理
         if (img.complete) {
-            readExifWithProxy(img);
+            loadAndReadExif(img);
         } else {
-            img.addEventListener('load', () => readExifWithProxy(img));
+            img.addEventListener('load', () => loadAndReadExif(img));
         }
     });
 
-    function readExifWithProxy(img) {
-        // 防止重复解析
-        if (img.dataset.exifProcessed) return;
-        img.dataset.exifProcessed = "true";
+    function loadAndReadExif(originalImg) {
+        // 防止重复处理
+        if (originalImg.dataset.exifProcessed) return;
+        originalImg.dataset.exifProcessed = "true";
 
-        const src = img.src;
+        const src = originalImg.src;
         if (!src || !src.startsWith('http')) return;
 
-        // 【核心大招】：利用全球允许跨域的公共图片代理，绕过你图床的 CORS 限制
-        const proxyUrl = 'https://images.weserv.nl/?url=' + encodeURIComponent(src.replace(/^https?:\/\//, ''));
-
-        fetch(proxyUrl, { method: 'GET' })
-            .then(res => {
-                if (!res.ok) throw new Error('Proxy failed');
-                return res.arrayBuffer();
-            })
-            .then(arrayBuffer => {
-                const tags = ExifReader.load(arrayBuffer);
+        // 【核心杀招】：在内存里创建一个干净的无跨域缓存污染的独立图片对象
+        const tempImg = new Image();
+        tempImg.crossOrigin = "anonymous"; 
+        
+        tempImg.onload = function() {
+            try {
+                // 直接让 ExifReader 解析这个已经加载好的图片对象
+                const tags = ExifReader.load(tempImg);
                 
                 // 提取核心参数
-                const model = tags['Model'] ? tags['Model'].description : null;
-                const fNumber = tags['FNumber'] ? tags['FNumber'].description : null;
-                const exposureTime = tags['ExposureTime'] ? tags['ExposureTime'].description : null;
-                const iso = tags['ISOSpeedRatings'] ? tags['ISOSpeedRatings'].description : null;
-                const focalLength = tags['FocalLength'] ? tags['FocalLength'].description : null;
+                const model = tags['Model']?.description || tags['Make']?.description;
+                const fNumber = tags['FNumber']?.description || tags['ApertureValue']?.description;
+                const exposureTime = tags['ExposureTime']?.description || tags['ShutterSpeedValue']?.description;
+                const iso = tags['ISOSpeedRatings']?.description || tags['ISO']?.description;
+                const focalLength = tags['FocalLength']?.description;
 
+                // 如果没有相机型号，说明没有 EXIF，静默退出
                 if (!model) return;
 
-                // 组装文本
-                const infoText = `📷 ${model} · ${fNumber || ''} · ${exposureTime || ''}s · ISO ${iso || ''} · ${focalLength || ''}`;
-                const cleanText = infoText.replace(/··/g, '·').replace(/\s+/g, ' ');
+                // 组装并清理文本
+                const infoText = `📷 ${model} · ${fNumber ? 'ƒ/' + fNumber : ''} · ${exposureTime ? exposureTime + 's' : ''} · ISO ${iso || ''} · ${focalLength || ''}`;
+                const cleanText = infoText.replace(/··+/g, '·').replace(/\s+/g, ' ').replace(/· ·/g, '·').trim();
 
-                // 优雅地插入到图片正下方
+                // 优雅地插入到原图正下方
                 const infoDiv = document.createElement('div');
                 infoDiv.className = 'img-exif-info';
                 infoDiv.innerText = cleanText;
-                img.parentNode.insertBefore(infoDiv, img.nextSibling);
-            })
-            .catch(err => {
-                console.log('EXIF read skip:', img.src);
-            });
+                originalImg.parentNode.insertBefore(infoDiv, originalImg.nextSibling);
+            } catch (e) {
+                console.log("EXIF 解析跳过 (无数据或被拦截):", src);
+            }
+        };
+
+        tempImg.onerror = function() {
+            console.log("图片加载失败:", src);
+        };
+
+        // 附带时间戳，彻底粉碎浏览器的所有顽固缓存
+        tempImg.src = src + (src.includes('?') ? '&' : '?') + 'exif_refresh=' + new Date().getTime();
     }
 });
 </script>
@@ -622,6 +626,8 @@ window.addEventListener('load', () => {
     letter-spacing: 0.5px;
 }
 </style>
+
+
 		
 		
 	</body>
