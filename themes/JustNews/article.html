@@ -549,55 +549,65 @@ function copyFeedUrl(type) {
 </script>
 
 
+
 <script src="https://cdn.jsdelivr.net/npm/exifreader@4.23.3/dist/exif-reader.js"></script>
 
 <script>
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('load', () => {
     // 找到文章里的所有图片
     const images = document.querySelectorAll('.post-content img, article img');
     
     images.forEach(img => {
-        const imgSrc = img.src;
-        // 过滤掉 base64 或者奇怪的链接
-        if (!imgSrc || !imgSrc.startsWith('http')) return;
+        // 确保图片加载完再处理
+        if (img.complete) {
+            readExifWithProxy(img);
+        } else {
+            img.addEventListener('load', () => readExifWithProxy(img));
+        }
+    });
 
-        // 异步请求图片的前几百个字节（不需要下载整张图，只读头部元数据，速度极快）
-        fetch(imgSrc, { method: 'GET' })
-            .then(response => {
-                if (!response.ok) throw new Error('Network response was not ok');
-                return response.arrayBuffer(); // 转成二进制流
+    function readExifWithProxy(img) {
+        // 防止重复解析
+        if (img.dataset.exifProcessed) return;
+        img.dataset.exifProcessed = "true";
+
+        const src = img.src;
+        if (!src || !src.startsWith('http')) return;
+
+        // 【核心大招】：利用全球允许跨域的公共图片代理，绕过你图床的 CORS 限制
+        const proxyUrl = 'https://images.weserv.nl/?url=' + encodeURIComponent(src.replace(/^https?:\/\//, ''));
+
+        fetch(proxyUrl, { method: 'GET' })
+            .then(res => {
+                if (!res.ok) throw new Error('Proxy failed');
+                return res.arrayBuffer();
             })
             .then(arrayBuffer => {
-                // 使用 ExifReader 解析二进制数据
                 const tags = ExifReader.load(arrayBuffer);
                 
-                // 提取参数（该库提取出来的参数带有 .description 属性）
+                // 提取核心参数
                 const model = tags['Model'] ? tags['Model'].description : null;
                 const fNumber = tags['FNumber'] ? tags['FNumber'].description : null;
                 const exposureTime = tags['ExposureTime'] ? tags['ExposureTime'].description : null;
                 const iso = tags['ISOSpeedRatings'] ? tags['ISOSpeedRatings'].description : null;
                 const focalLength = tags['FocalLength'] ? tags['FocalLength'].description : null;
 
-                // 如果连相机型号都没有，说明没有 EXIF，直接退出
                 if (!model) return;
 
-                // 组装文本 (ExifReader 读出来的光圈和快门通常已经是格式化好的，比如 "f/2.8", "1/125")
+                // 组装文本
                 const infoText = `📷 ${model} · ${fNumber || ''} · ${exposureTime || ''}s · ISO ${iso || ''} · ${focalLength || ''}`;
+                const cleanText = infoText.replace(/··/g, '·').replace(/\s+/g, ' ');
 
-                // 清理掉可能带有参数的特殊字符（比如有的读出来自带 f/ 符号）
-                const cleanText = infoText.replace('··', '·').replace('  ', ' ');
-
-                // 优雅地插入到图片下方
+                // 优雅地插入到图片正下方
                 const infoDiv = document.createElement('div');
                 infoDiv.className = 'img-exif-info';
                 infoDiv.innerText = cleanText;
                 img.parentNode.insertBefore(infoDiv, img.nextSibling);
             })
-            .catch(error => {
-                // 如果抓取失败（比如遇到了 CORS 跨域阻拦），在控制台打印，不影响页面
-                console.log('EXIF read error:', error);
+            .catch(err => {
+                console.log('EXIF read skip:', img.src);
             });
-    });
+    }
 });
 </script>
 
@@ -609,6 +619,7 @@ window.addEventListener('DOMContentLoaded', () => {
     margin-top: 6px; 
     margin-bottom: 25px; 
     font-family: monospace;
+    letter-spacing: 0.5px;
 }
 </style>
 		
