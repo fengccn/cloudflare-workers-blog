@@ -550,101 +550,48 @@ function copyFeedUrl(type) {
 
 
 <script src="https://cdn.jsdelivr.net/npm/exifreader@4.23.3/dist/exif-reader.js"></script>
-
 <script>
 window.addEventListener('load', () => {
-    // 1. 找到文章里的所有图片
     const images = document.querySelectorAll('.post-content img, article img');
-    
     images.forEach(img => {
         const src = img.src;
-        if (!src || !src.startsWith('http')) return;
+        if (!src || !src.startsWith('http') || src.includes('qlogo.cn') || src.includes('avatar')) return;
 
-        // 过滤头像
-        if (src.includes('qlogo.cn') || src.includes('avatar') || src.includes('gravatar.com')) return;
-
-        // 确保图片完全加载后再去临摹它
-        if (img.complete) {
-            canvasReadExif(img);
-        } else {
-            img.addEventListener('load', () => canvasReadExif(img));
-        }
+        if (img.complete) { readExif(img); } else { img.addEventListener('load', () => readExif(img)); }
     });
 
-    function canvasReadExif(originalImg) {
+    function readExif(originalImg) {
         if (originalImg.dataset.exifProcessed) return;
         originalImg.dataset.exifProcessed = "true";
 
-        try {
-            // 创建一个临时的隐藏画布
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            // 保持和原图一模一样的宽高
-            canvas.width = originalImg.naturalWidth || originalImg.width;
-            canvas.height = originalImg.naturalHeight || originalImg.height;
-            
-            // 【核心杀招】：把页面上已经显示出来的图片直接画到画布上（不发起任何网络请求！）
-            ctx.drawImage(originalImg, 0, 0);
-            
-            // 将画布转为 Base64 字符串，再转成二进制 ArrayBuffer 喂给解析器
-            const dataUrl = canvas.toDataURL('image/jpeg');
-            const arrayBuffer = base64ToArrayBuffer(dataUrl);
-            
-            // 解析数据
-            const tags = ExifReader.load(arrayBuffer);
-            
-            const model = tags['Model']?.description || tags['Make']?.description;
-            const fNumber = tags['FNumber']?.description || tags['ApertureValue']?.description;
-            const exposureTime = tags['ExposureTime']?.description || tags['ShutterSpeedValue']?.description;
-            const iso = tags['ISOSpeedRatings']?.description || tags['ISO']?.description;
-            const focalLength = tags['FocalLength']?.description;
+        let src = originalImg.src;
+        try { src = decodeURIComponent(decodeURIComponent(src)); } catch (e) {}
 
-            if (!model) {
-                console.log("ℹ️ 画布截获成功，但该图可能在上传时被抹去了 EXIF 元数据:", originalImg.src);
-                return;
-            }
+        fetch(src, { method: 'GET' })
+            .then(res => { if (!res.ok) throw new Error(); return res.arrayBuffer(); })
+            .then(arrayBuffer => {
+                const tags = ExifReader.load(arrayBuffer);
+                const model = tags['Model']?.description || tags['Make']?.description;
+                const fNumber = tags['FNumber']?.description;
+                const exposureTime = tags['ExposureTime']?.description;
+                const iso = tags['ISOSpeedRatings']?.description;
+                const focalLength = tags['FocalLength']?.description;
 
-            // 组装并清理文本
-            const infoText = `📷 ${model} · ${fNumber ? 'ƒ/' + fNumber : ''} · ${exposureTime ? exposureTime + 's' : ''} · ISO ${iso || ''} · ${focalLength || ''}`;
-            const cleanText = infoText.replace(/··+/g, '·').replace(/\s+/g, ' ').replace(/· ·/g, '·').trim();
+                if (!model) return;
 
-            // 优雅地插入到图片下方
-            const infoDiv = document.createElement('div');
-            infoDiv.className = 'img-exif-info';
-            infoDiv.innerText = cleanText;
-            originalImg.parentNode.insertBefore(infoDiv, originalImg.nextSibling);
+                const infoText = `📷 ${model} · ${fNumber ? 'ƒ/' + fNumber : ''} · ${exposureTime ? exposureTime + 's' : ''} · ISO ${iso || ''} · ${focalLength || ''}`;
+                const cleanText = infoText.replace(/··+/g, '·').replace(/\s+/g, ' ').trim();
 
-        } catch (err) {
-            // 如果连 Canvas 临摹都因为某些浏览器的安全策略失败了，在控制台静默提示
-            console.log("⚠️ Canvas 截获跳过 (受限于本地安全策略):", originalImg.src);
-        }
-    }
-
-    // 辅助函数：将 Base64 转为 ArrayBuffer
-    function base64ToArrayBuffer(base64) {
-        const binaryString = window.atob(base64.split(',')[1]);
-        const len = binaryString.length;
-        const bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-        }
-        return bytes.buffer;
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'img-exif-info';
+                infoDiv.innerText = cleanText;
+                originalImg.parentNode.insertBefore(infoDiv, originalImg.nextSibling);
+            })
+            .catch(() => {});
     }
 });
 </script>
-
-<style>
-.img-exif-info {
-    text-align: center;
-    font-size: 0.8rem;
-    color: #888;
-    margin-top: 6px; 
-    margin-bottom: 25px; 
-    font-family: monospace;
-    letter-spacing: 0.5px;
-}
-</style>
+<style>.img-exif-info { text-align: center; font-size: 0.8rem; color: #888; margin-top: 6px; margin-bottom: 25px; font-family: monospace; }</style>
 		
 		
 	</body>
