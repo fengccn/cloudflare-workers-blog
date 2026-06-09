@@ -627,29 +627,36 @@ window.addEventListener('load', () => {
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-    // 假设你的文章内容包裹在 class 为 .article-content 或 .entry-content 的 div 中
-    // 请根据你 JustNews 主题中实际包裹文章内容的标签类名进行调整（通常是 .post-content 或 .article-content）
-    var articleContent = document.querySelector('.article-content') || document.querySelector('.post-content') || document.body;
+    // 自动适配 JustNews 常见文章容器类名
+    var articleContent = document.querySelector('.article-content') || document.querySelector('.post-content') || document.querySelector('.entry-content') || document.body;
     
     if (articleContent) {
-        // 查找文章内的所有图片
         var images = articleContent.querySelectorAll('img');
         
         images.forEach(function (img) {
-            // 如果图片外面没有包裹超链接，我们就给它加上灯箱效果
-            if (img.parentElement.tagName !== 'A') {
-                // 创建一个包裹图片的 a 标签，指向图片自身地址
+            var parent = img.parentElement;
+            
+            // 情况 A：如果图片外面已经有 a 标签了
+            if (parent && parent.tagName === 'A') {
+                // 给现有的 a 标签加上灯箱需要的类名
+                parent.classList.add('gallery-link');
+                
+                // 阻止点击时直接跳转网页的默认行为
+                parent.addEventListener('click', function(e) {
+                    e.preventDefault(); 
+                });
+            } 
+            // 情况 B：如果图片外面没有 a 标签
+            else {
                 var link = document.createElement('a');
                 link.href = img.src;
                 link.className = 'gallery-link';
-                
-                // 将 a 标签插入到图片之前，并把图片移入 a 标签内
                 img.parentNode.insertBefore(link, img);
                 link.appendChild(img);
             }
         });
         
-        // 初始化灯箱效果
+        // 重新初始化灯箱效果
         var galleryLinks = articleContent.querySelectorAll('.gallery-link');
         if (galleryLinks.length > 0) {
             new LuminousGallery(galleryLinks);
