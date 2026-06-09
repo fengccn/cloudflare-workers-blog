@@ -579,17 +579,17 @@ window.addEventListener('load', () => {
 
                 if (!model) return;
 
-                // 💡 修改这里：顺便帮你把 ƒ/f/3.2 的重复斜杠问题修正为标准的 ƒ/3.2
+                // 修正部分参数可能自带 f/ 的标准 ƒ/ 格式
                 const fixedFNumber = fNumber ? (fNumber.startsWith('f/') ? fNumber : 'ƒ/' + fNumber) : '';
                 const infoText = `📷 ${model} · ${fixedFNumber} · ${exposureTime ? exposureTime + 's' : ''} · ISO ${iso || ''} · ${focalLength || ''}`;
                 let cleanText = infoText.replace(/··+/g, '·').replace(/\s+/g, ' ').trim();
 
-                // 💡 核心改动：不创建新标签，直接把提示语作为纯文本拼接在最后，用三个空格隔开
-                cleanText += "  （部分老镜头无法保存实际拍摄参数，exif信息仅供参考。）";
+                // 纯文本拼接提示语
+                cleanText += "   因手动老镜头等因素部分 exif 信息无法反映实际，参数仅供参考。";
 
                 const infoDiv = document.createElement('div');
                 infoDiv.className = 'img-exif-info';
-                infoDiv.innerText = cleanText; // 使用 innerText 渲染纯文本
+                infoDiv.innerText = cleanText;
                 
                 originalImg.parentNode.insertBefore(infoDiv, originalImg.nextSibling);
             })
@@ -601,14 +601,22 @@ window.addEventListener('load', () => {
 <style>
 .img-exif-info {
     text-align: center;
-    font-size: 0.85rem;        /* 💡 适当调小了一点整体字号，让长句子在一行内更协调 */
+    font-size: 0.85rem;        
     color: #555;               
     font-weight: 500;          
-    margin-top: 12px;          /* 图片距离参数的间距 */
-    margin-bottom: 28px;       /* 参数距离下方段落的间距 */
+    margin-top: 10px;          /* 图片距离参数的间距 */
+    margin-bottom: 6px;        /* 💡 大幅缩小底部间距！让下方的图片标题能够紧贴上来 */
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     letter-spacing: 0.8px;     
-    line-height: 1.5;          /* 确保在极窄的手机屏幕上如果被迫折行，上下行距也非常自然紧凑 */
+    line-height: 1.4;          
+}
+
+/* 💡 联动优化：如果 EXIF 后面直接跟着你手动写的图片标题（比如用 p、div 或 span 写的标签） */
+.img-exif-info + p,
+.img-exif-info + div,
+.img-exif-info + span {
+    margin-top: 2px !important; /* 强制压缩 EXIF 正下方第一个元素的顶部间距 */
+    padding-top: 0 !important;
 }
 </style>
 		
