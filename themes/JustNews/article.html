@@ -585,7 +585,7 @@ window.addEventListener('load', () => {
                 let cleanText = infoText.replace(/··+/g, '·').replace(/\s+/g, ' ').trim();
 
                 // 纯文本拼接提示语
-                cleanText += "   因手动老镜头等因素部分 exif 信息无法反映实际，参数仅供参考。";
+                cleanText += "   (部分手动老镜头无法保留拍摄实际参数，exif参数仅供参考。）";
 
                 const infoDiv = document.createElement('div');
                 infoDiv.className = 'img-exif-info';
