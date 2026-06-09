@@ -553,32 +553,38 @@ function copyFeedUrl(type) {
 
 <script>
 window.addEventListener('load', () => {
+    // 1. 依然抓取文章区域的图片
     const images = document.querySelectorAll('.post-content img, article img');
     
     images.forEach(img => {
+        const src = img.src;
+        if (!src || !src.startsWith('http')) return;
+
+        // ❌ 【核心过滤】：如果是QQ头像、第三方头像或评论区表情，直接跳过，绝不发起请求
+        if (src.includes('qlogo.cn') || src.includes('avatar') || src.includes('gravatar.com')) {
+            return; 
+        }
+
         if (img.complete) {
-            finalReadExif(img);
+            preciseReadExif(img);
         } else {
-            img.addEventListener('load', () => finalReadExif(img));
+            img.addEventListener('load', () => preciseReadExif(img));
         }
     });
 
-    function finalReadExif(originalImg) {
+    function preciseReadExif(originalImg) {
         if (originalImg.dataset.exifProcessed) return;
         originalImg.dataset.exifProcessed = "true";
 
         let src = originalImg.src;
-        if (!src || !src.startsWith('http')) return;
 
         try {
-            // 【核心修复】：连续解码两次，把 %25E5%25 这种双重加密强行还原成正常的中文路径
+            // 双重解码，还原可能存在的中文路径
             src = decodeURIComponent(decodeURIComponent(src));
         } catch (e) {
-            // 如果解码出错，保持原样
             src = originalImg.src;
         }
 
-        // 内存中建立无痕独立通道，避开所有的缓存干扰
         const tempImg = new Image();
         tempImg.crossOrigin = "anonymous"; 
         
@@ -586,35 +592,37 @@ window.addEventListener('load', () => {
             try {
                 const tags = ExifReader.load(tempImg);
                 
-                // 提取参数
+                // 打印真正被解析的图床图片元数据，方便定位
+                console.log("📷 成功解析目标图片元数据:", src, tags);
+                
                 const model = tags['Model']?.description || tags['Make']?.description;
                 const fNumber = tags['FNumber']?.description || tags['ApertureValue']?.description;
                 const exposureTime = tags['ExposureTime']?.description || tags['ShutterSpeedValue']?.description;
                 const iso = tags['ISOSpeedRatings']?.description || tags['ISO']?.description;
                 const focalLength = tags['FocalLength']?.description;
 
-                if (!model) return;
+                if (!model) {
+                    console.log("ℹ️ 该图已成功读取流，但内部确实无 EXIF 信息:", src);
+                    return;
+                }
 
-                // 格式化文本
                 const infoText = `📷 ${model} · ${fNumber ? 'ƒ/' + fNumber : ''} · ${exposureTime ? exposureTime + 's' : ''} · ISO ${iso || ''} · ${focalLength || ''}`;
                 const cleanText = infoText.replace(/··+/g, '·').replace(/\s+/g, ' ').replace(/· ·/g, '·').trim();
 
-                // 优雅地插入到图片下方
                 const infoDiv = document.createElement('div');
                 infoDiv.className = 'img-exif-info';
                 infoDiv.innerText = cleanText;
                 originalImg.parentNode.insertBefore(infoDiv, originalImg.nextSibling);
             } catch (err) {
-                console.log("EXIF 解析跳过:", src);
+                console.log("❌ 目标图片底层流读取失败（可能存在隐藏CORS）:", src);
             }
         };
 
         tempImg.onerror = function() {
-            console.log("图片加载失败:", src);
+            console.log("❌ 目标图片加载失败:", src);
         };
 
-        // 加上时间戳，防止浏览器偷懒调用无跨域权限的旧缓存
-        tempImg.src = src + (src.includes('?') ? '&' : '?') + 'exif_timestamp=' + new Date().getTime();
+        tempImg.src = src + (src.includes('?') ? '&' : '?') + 'exif_real_pic=' + new Date().getTime();
     }
 });
 </script>
@@ -629,8 +637,7 @@ window.addEventListener('load', () => {
     font-family: monospace;
     letter-spacing: 0.5px;
 }
-</style>		
-
+</style>
 		
 		
 	</body>
