@@ -244,7 +244,8 @@
 
         <script>
             // 1. 修正：这里改成了反引号 ` 确保时间戳动态生效，完美绕过 CDN 强缓存
-            fetch(`https://cdn.jsdelivr.net/gh/fengccn/cloudflare-workers-blog@master/notice.json?t=${Date.now()}`)
+            // 换成 fastly 镜像，并保留时间戳
+			fetch(`https://fastly.jsdelivr.net/gh/fengccn/cloudflare-workers-blog@master/notice.json?t=${Date.now()}`)
                 .then(res => {
                     if (!res.ok) throw new Error('网络请求失败');
                     return res.json();
