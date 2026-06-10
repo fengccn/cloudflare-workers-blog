@@ -237,37 +237,39 @@
        </div> 
 					
 <div id="linkcat-0" class="widget widget_links">
-     <h3 class="widget-title" class="widget-title">  
-	  <span>📢 站内公告</span></h3>
+    <h3 class="widget-title"><span>📢 站内公告</span></h3>
     <div class="sidebar-content" style="padding: 10px; font-size: 14px; line-height: 1.6; color: #555;">
        
-<div id="custom-notice">加载中...</div>
+        <div id="custom-notice">加载中...</div>
 
-<script>
-    // 使用 jsDelivr CDN 加速 GitHub 文件，确保国内稳定访问
-  fetch('https://cdn.jsdelivr.net/gh/fengccn/cloudflare-workers-blog@master/notice.json?t=${Date.now()}')
-        .then(res => {
-            if (!res.ok) throw new Error('网络请求失败');
-            return res.json();
-        })
-        .then(data => {
-            if (data && data.content) {
-                document.getElementById('custom-notice').innerHTML = `
-                    <p style="margin: 0; white-space: pre-line;">${data.content}</p>
-                    <p style="font-size: 12px; color: #999; text-align: right; margin: 8px 0 0 0;">更新于: ${data.date || ''}</p>
-                `;
-            } else {
-                document.getElementById('custom-notice').innerText = '暂无公告';
-            }
-        })
-        .catch(err => { 
-            console.error(err);
-            document.getElementById('custom-notice').innerText = '暂无公告'; 
-        });
-</script>
+        <script>
+            // 1. 修正：这里改成了反引号 ` 确保时间戳动态生效，完美绕过 CDN 强缓存
+            fetch(`https://cdn.jsdelivr.net/gh/fengccn/cloudflare-workers-blog@master/notice.json?t=${Date.now()}`)
+                .then(res => {
+                    if (!res.ok) throw new Error('网络请求失败');
+                    return res.json();
+                })
+                .then(data => {
+                    // 2. 修正：兼容判断。如果 JSON 是数组则取第一条 [0]，如果是对象则直接用
+                    const noticeItem = Array.isArray(data) ? data[0] : data;
+
+                    if (noticeItem && noticeItem.content) {
+                        document.getElementById('custom-notice').innerHTML = `
+                            <p style="margin: 0; white-space: pre-line;">${noticeItem.content}</p>
+                            ${noticeItem.date ? `<p style="font-size: 12px; color: #999; text-align: right; margin: 8px 0 0 0;">更新于: ${noticeItem.date}</p>` : ''}
+                        `;
+                    } else {
+                        document.getElementById('custom-notice').innerText = '暂无公告';
+                    }
+                })
+                .catch(err => { 
+                    console.error('公告加载失败:', err);
+                    document.getElementById('custom-notice').innerText = '暂无公告'; 
+                });
+        </script>
 
     </div>
- </div>
+</div>
 
 <div class="widget widget_subscription">
     <h3 class="widget-title"><span>订阅本站</span></h3>
