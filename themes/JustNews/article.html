@@ -243,16 +243,13 @@
         <div id="custom-notice">加载中...</div>
 
         <script>
-            // 1. 修正：这里改成了反引号 ` 确保时间戳动态生效，完美绕过 CDN 强缓存
-            // 换成 fastly 镜像，并保留时间戳
-            // 换成 fastly 镜像，并保留时间戳
-			fetch(`https://fastly.jsdelivr.net/gh/fengccn/cloudflare-workers-blog@master/notice.json?t=${Date.now()}`)
+            // 实时从本地同域名的公开 api_notice 接口读取 KV 里的公告数据
+            fetch('/api_notice')
                 .then(res => {
                     if (!res.ok) throw new Error('网络请求失败');
                     return res.json();
                 })
                 .then(data => {
-                    // 2. 修正：兼容判断。如果 JSON 是数组则取第一条 [0]，如果是对象则直接用
                     const noticeItem = Array.isArray(data) ? data[0] : data;
 
                     if (noticeItem && noticeItem.content) {
