@@ -10,42 +10,90 @@
 		<meta name="description" content="{{ &OPT.siteDescription }}" />
 
 
-<style>
-  /* 轮播容器设置 */
-  .ad_mutil {
-    width: 270px;
-    height: 100px;
-    overflow: hidden;
-    position: relative;
-    border: 2px solid #ccc;
-  }
 
-  /* 图片链接样式 */
-  .ad_mutil a {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    opacity: 0;
-    transition: opacity 1s ease-in-out;
-    /* --- 关键新增 --- */
-    pointer-events: none; /* 非激活状态下禁止点击，穿透过去 */
-    z-index: 0;          /* 确保在底层 */
-  }
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 40px;
+            min-height: 100vh;
+            background: #f0f2f5;
+            font-family: Arial, sans-serif;
+            /* 原来是 padding: 30px 20px; 改为下面这行 */
+            padding: 0 20px;
+            flex-wrap: wrap;
+        }
+        .box {
+            background: #fff;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+            /* 宽度自适应内容 */
+        }
+        .carousel {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #2c3e50;
+            /* 尺寸由具体宽高决定，不在这里统一设置 */
+        }
+        .carousel img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 0.5s;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;  /* 新增：隐藏的图片不可点击 */
+         }
+        .carousel img.active {
+             opacity: 1;
+              pointer-events: auto;  /* 新增：只有当前显示的图片可点击 */
+         }
+        .dots {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .dots span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ccc;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .dots span.active {
+            background: #1a73e8;
+        }
+        .title {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #555;
+            font-weight: 600;
+        }
+        /* 每个轮播单独控制尺寸 */
+        .carousel-270x100 {
+            width: 270px;
+            height: 100px;
+        }
+        .carousel-270x250 {
+            width: 270px;
+            height: 250px;
+        }
+     </style>
 
-  /* 当前显示的图片 */
-  .ad_mutil a.active {
-    opacity: 1;
-    /* --- 关键新增 --- */
-    pointer-events: auto; /* 激活时允许点击 */
-    z-index: 1;          /* 提升到顶层 */
-  }
-
-  .ad_mutil img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-</style>
 		
 
 		<link rel='stylesheet' id='stylesheet-css' href='https://cdn.jsdelivr.net/gh/gdtool/cloudflare-workers-blog@master/themes/JustNews/files/main.css' type='text/css' media='all' />
@@ -338,35 +386,22 @@
 
 
 <div id="linkcat-0" class="widget widget_links">
-    <h3 class="widget-title"><span>广告位招租</span></h3>
-    
-      <div class="ad_mutil" id="myCarousel">
-        <a href="https://picshare.880200.xyz/ad" target="_blank" class="active"><img src="https://fengc-img.880200.xyz/api/rfile/ad_01.png" alt="ad_01"></a>
-        <a href="https://picshare.880200.xyz/ad" target="_blank"><img src="https://fengc-img.880200.xyz/api/rfile/ad_02.png" alt="ad_02"></a>
-      </div>
+  		<h3 class="widget-title"><span>广告位招租</span></h3>
+        <div class="carousel carousel-270x100" data-id="0">
+            <img class="active" src="https://fengc-img.880200.xyz/api/rfile/ad_01.png" alt="广告位1" onclick="window.open('https://picshare.880200.xyz/ad.html')">
+            <img src="https://fengc-img.880200.xyz/api/rfile/ad_02.png" alt="广告位2" onclick="window.open('https://picshare.880200.xyz/ad2.html')">
+            <img src="https://fengc-img.880200.xyz/api/rfile/ad_01.png" alt="广告位3" onclick="window.open('https://picshare.880200.xyz/ad3.html')">
+            <img src="https://fengc-img.880200.xyz/api/rfile/ad_02.png" alt="广告位4" onclick="window.open('https://picshare.880200.xyz/ad4.html')">		
+		</div>
+        <div class="dots" data-id="0">
+            <span class="active"></span>
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+    </div>
 
-      <script>
-        const slides = document.querySelectorAll('.ad_mutil a');
-        let currentIndex = 0;
-        const intervalTime = 5000; // 轮播间隔时间：5000毫秒（即15秒）
-
-        function nextSlide() {
-        // 移除当前图片的 active 类
-        slides[currentIndex].classList.remove('active');
-    
-        // 计算下一张索引
-        currentIndex = (currentIndex + 1) % slides.length;
-    
-        // 添加 active 类到下一张图片
-        slides[currentIndex].classList.add('active');
-       } 
-
-       // 启动定时器
-       setInterval(nextSlide, intervalTime);
-      </script>
-
-  </div> 
-
+			
 					
 					
 					<div id="linkcat-0" class="widget widget_links">
@@ -390,6 +425,27 @@
 					</div>
 
 
+<!-- ===== 轮播 2：推荐工具 270x250 ===== -->
+<div id="linkcat-0" class="widget widget_links">
+  		<h3 class="widget-title"><span>推荐工具</span></h3>
+        <div class="carousel carousel-270x250" data-id="1">
+            <img class="active" src="https://fengc-img.880200.xyz/api/rfile/ad_picshare.jpg" alt="推荐工具1" onclick="window.open('https://picshare.880200.xyz')">
+            <img src="https://fengc-img.880200.xyz/api/rfile/logo_voicecraft.jpg" alt="推荐工具2" onclick="window.open('https://tts.880200.xyz')">
+            <img src="https://fengc-img.880200.xyz/api/rfile/ad_pdfcraft.jpg" alt="推荐工具3" onclick="window.open('https://pdfcraft.880200.xyz')">
+            <img src="https://fengc-img.880200.xyz/api/rfile/ad_qrcode.jpg" alt="推荐工具4" onclick="window.open('https://qr.880200.xyz')">
+        </div>
+        <div class="dots" data-id="1">
+            <span class="active"></span>
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+    </div>
+
+
+
+
+					
 					{{ &OPT.widgetOther }}
 				</aside>
 			</div>
@@ -465,6 +521,49 @@ var fifuImageVars = {"fifu_lazy":"1","fifu_woo_lbox_enabled":"1","fifu_woo_zoom"
 <script>hljs.initHighlightingOnLoad(); //代码高亮
 					</script>
 		{{ &OPT.codeBeforBody }}
+
+
+	<script>
+        // ----- 支持多个轮播，每个独立运行，尺寸完全独立 -----
+        function initCarousel(carouselEl, dotsEl) {
+            const imgs = carouselEl.querySelectorAll('img');
+            const dots = dotsEl.querySelectorAll('span');
+            let i = 0,
+                timer;
+
+            function go(n) {
+                imgs.forEach(el => el.classList.remove('active'));
+                dots.forEach(el => el.classList.remove('active'));
+                imgs[n].classList.add('active');
+                dots[n].classList.add('active');
+                i = n;
+            }
+
+            function next() { go((i + 1) % imgs.length); }
+
+            function start() {
+                if (timer) clearInterval(timer);
+                timer = setInterval(next, 5000);
+            }
+
+            dots.forEach((dot, idx) => {
+                dot.onclick = () => { go(idx);
+                    start(); };
+            });
+
+            carouselEl.onmouseenter = () => clearInterval(timer);
+            carouselEl.onmouseleave = start;
+
+            start();
+        }
+
+        // ----- 初始化所有轮播 -----
+        document.querySelectorAll('.carousel').forEach((carousel, index) => {
+            const dots = document.querySelectorAll('.dots')[index];
+            initCarousel(carousel, dots);
+        });
+    </script>	
+		
 
 <script>
 window.cfSearchData = null;
