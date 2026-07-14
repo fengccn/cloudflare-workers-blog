@@ -571,7 +571,9 @@
 				});
 			})(jQuery);</script>
 		{{ &OPT.codeBeforBody }}
-<script>
+
+		
+	<script>
         // ----- 支持多个轮播，每个独立运行，尺寸完全独立 -----
         function initCarousel(carouselEl, dotsEl) {
             const imgs = carouselEl.querySelectorAll('img');
@@ -591,7 +593,7 @@
 
             function start() {
                 if (timer) clearInterval(timer);
-                timer = setInterval(next, 3000);
+                timer = setInterval(next, 5000);
             }
 
             dots.forEach((dot, idx) => {
