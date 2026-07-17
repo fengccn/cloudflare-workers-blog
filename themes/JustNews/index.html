@@ -618,9 +618,9 @@ document.querySelectorAll('.carousel').forEach((carousel, index) => {
     // 根据 data-id 或索引判断使用哪个时间
     // 方法1：通过 data-id 判断
     const id = parseInt(carousel.dataset.id);
-    let interval = 3000;  // 默认3秒
+    let interval = 4000;  // 默认3秒
     if (id === 0) interval = 5000;  // 广告位 5秒
-    if (id === 1) interval = 2000;  // 推荐工具 3秒
+    if (id === 1) interval = 3500;  // 推荐工具 3秒
     
     initCarousel(carousel, dots, interval);
 });
