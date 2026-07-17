@@ -580,43 +580,50 @@
 		
 	<script>
         // ----- 支持多个轮播，每个独立运行，尺寸完全独立 -----
-        function initCarousel(carouselEl, dotsEl) {
-            const imgs = carouselEl.querySelectorAll('img');
-            const dots = dotsEl.querySelectorAll('span');
-            let i = 0,
-                timer;
+// ----- 支持自定义轮播时间 -----
+function initCarousel(carouselEl, dotsEl, interval = 3000) {  // ← 新增 interval 参数，默认3000ms
+    const imgs = carouselEl.querySelectorAll('img');
+    const dots = dotsEl.querySelectorAll('span');
+    let i = 0, timer;
 
-            function go(n) {
-                imgs.forEach(el => el.classList.remove('active'));
-                dots.forEach(el => el.classList.remove('active'));
-                imgs[n].classList.add('active');
-                dots[n].classList.add('active');
-                i = n;
-            }
+    function go(n) {
+        imgs.forEach(el => el.classList.remove('active'));
+        dots.forEach(el => el.classList.remove('active'));
+        imgs[n].classList.add('active');
+        dots[n].classList.add('active');
+        i = n;
+    }
 
-            function next() { go((i + 1) % imgs.length); }
+    function next() { go((i + 1) % imgs.length); }
 
-            function start() {
-                if (timer) clearInterval(timer);
-                timer = setInterval(next, 3500);
-            }
+    function start() {
+        if (timer) clearInterval(timer);
+        timer = setInterval(next, interval);  // ← 使用传入的 interval
+    }
 
-            dots.forEach((dot, idx) => {
-                dot.onclick = () => { go(idx);
-                    start(); };
-            });
+    dots.forEach((dot, idx) => {
+        dot.onclick = () => { go(idx); start(); };
+    });
 
-            carouselEl.onmouseenter = () => clearInterval(timer);
-            carouselEl.onmouseleave = start;
+    carouselEl.onmouseenter = () => clearInterval(timer);
+    carouselEl.onmouseleave = start;
 
-            start();
-        }
+    start();
+}
 
-        // ----- 初始化所有轮播 -----
-        document.querySelectorAll('.carousel').forEach((carousel, index) => {
-            const dots = document.querySelectorAll('.dots')[index];
-            initCarousel(carousel, dots);
-        });
+// ----- 初始化时分别传入不同时间 -----
+document.querySelectorAll('.carousel').forEach((carousel, index) => {
+    const dots = document.querySelectorAll('.dots')[index];
+    
+    // 根据 data-id 或索引判断使用哪个时间
+    // 方法1：通过 data-id 判断
+    const id = parseInt(carousel.dataset.id);
+    let interval = 3000;  // 默认3秒
+    if (id === 0) interval = 5000;  // 广告位 5秒
+    if (id === 1) interval = 2000;  // 推荐工具 3秒
+    
+    initCarousel(carousel, dots, interval);
+});
     </script>	
 
 <script>
