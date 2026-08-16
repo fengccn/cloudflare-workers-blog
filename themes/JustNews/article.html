@@ -411,15 +411,18 @@
 			
 					
 					
-					<div id="linkcat-0" class="widget widget_links">
-						<h3 class="widget-title">
-							<span>链接</span></h3>
-						<ul class='xoxo blogroll'>
-							{{ #widgetLinkList }}
-									<li><a href="{{ &url }}" target="_blank">{{ &title }}</a></li>
-							{{ /widgetLinkList }}
-						</ul>
-					</div>
+<div id="linkcat-0" class="widget widget_links">
+    <h3 class="widget-title">
+        <span>链接</span>
+    </h3>
+    <div class="widget widget_links_01">
+	 	<ul class='xoxo blogroll'>
+        {{ #widgetLinkList }}
+            <li><a href="{{ &url }}" target="_blank">{{ &title }}</a></li>
+        {{ /widgetLinkList }}
+		</ul>
+     </div>
+</div>
 					
 					<div id="tag_cloud-3" class="widget widget_tag_cloud">
 						<h3 class="widget-title">
